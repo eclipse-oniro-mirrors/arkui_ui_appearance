@@ -14,7 +14,7 @@
 import("//build/test.gni")
 import("//foundation/arkui/ui_appearance/ui_appearance.gni")
 
-module_output_path = "ui_appearance/ui_appearance_test"
+module_output_path = "ui_appearance/ui_appearance"
 
 config("ui_appearance_service_exception_config") {
   cflags_cc = [ "-fexceptions" ]
