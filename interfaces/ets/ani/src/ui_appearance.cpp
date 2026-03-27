@@ -47,7 +47,7 @@ ani_object GetErrorObject(ani_env *env, const std::string &errMsg, int32_t code)
         return nullptr;
     }
     ani_class errClass;
-    if (ANI_OK != (status = env->FindClass("@ohos:base.BusinessError", &errClass))) {
+    if (ANI_OK != (status = env->FindClass("@ohos.base.BusinessError", &errClass))) {
         LOGE("FindClass failed %{public}d", status);
         return nullptr;
     }
@@ -251,7 +251,7 @@ ani_enum_item GetDarkMode([[maybe_unused]] ani_env* env)
         return result;
     }
     ani_status status = ANI_OK;
-    static const char* enumName = "@ohos:uiAppearance.uiAppearance.DarkMode";
+    static const char* enumName = "@ohos.uiAppearance.uiAppearance.DarkMode";
     ani_enum enumType;
     if ((status = env->FindEnum(enumName, &enumType)) != ANI_OK) {
         LOGE("find DarkMode enum fail. status = %{public}d", status);
@@ -410,7 +410,7 @@ ANI_EXPORT ani_status ANI_Constructor(ani_vm *vm, uint32_t *result)
         return ANI_ERROR;
     }
     arkts::ani_signature::Namespace myNamespace =
-        arkts::ani_signature::Builder::BuildNamespace("@ohos:uiAppearance.uiAppearance");
+        arkts::ani_signature::Builder::BuildNamespace("@ohos.uiAppearance.uiAppearance");
     std::string namespaceDescriptor = myNamespace.Descriptor();
     ani_namespace ns;
     if (ANI_OK != env->FindNamespace(namespaceDescriptor.c_str(), &ns)) {
@@ -418,14 +418,14 @@ ANI_EXPORT ani_status ANI_Constructor(ani_vm *vm, uint32_t *result)
     }
     arkts::ani_signature::SignatureBuilder setDarkMode_SignatureBuilder {};
     setDarkMode_SignatureBuilder
-        .AddEnum("@ohos:uiAppearance.uiAppearance.DarkMode")
-        .AddClass("std:core.Function2");
+        .AddEnum("@ohos.uiAppearance.uiAppearance.DarkMode")
+        .AddClass("std.core.Function2");
     std::string setDarkMode_SignatureStr = setDarkMode_SignatureBuilder.BuildSignatureDescriptor();
 
     arkts::ani_signature::SignatureBuilder setDarkModeWithPromise_SignatureBuilder {};
     setDarkModeWithPromise_SignatureBuilder
-        .AddEnum("@ohos:uiAppearance.uiAppearance.DarkMode")
-        .SetReturnClass("std:core.Promise");
+        .AddEnum("@ohos.uiAppearance.uiAppearance.DarkMode")
+        .SetReturnClass("std.core.Promise");
     std::string setDarkModeWithPromise_SignatureStr =
         setDarkModeWithPromise_SignatureBuilder.BuildSignatureDescriptor();
 
