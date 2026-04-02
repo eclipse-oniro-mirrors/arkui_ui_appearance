@@ -38,6 +38,7 @@ namespace {
 static const std::string LIGHT = "light";
 static const std::string DARK = "dark";
 static const std::string BASE_SCALE = "1";
+static const std::string STANDARD_FONT_WEIGHT = "const.standard_font_weight";
 static const std::string PERSIST_DARKMODE_KEY = "persist.ace.darkmode";
 static const std::string PERMISSION_UPDATE_CONFIGURATION = "ohos.permission.UPDATE_CONFIGURATION";
 // current default accountId = 0, will change when have more user.
@@ -57,6 +58,22 @@ const static std::string NOT_FIRST_UPGRADE = "0";
 
 namespace OHOS {
 namespace ArkUi::UiAppearance {
+namespace {
+std::string GetDefaultFontWeightScaleValue(const std::string& defaultValue)
+{
+    std::string defaultFontWeightScale = defaultValue;
+    if (GetParameterWrap(STANDARD_FONT_WEIGHT, defaultFontWeightScale)) {
+        LOGI("get default fontWeightScale from %{public}s, value:%{public}s", STANDARD_FONT_WEIGHT.c_str(),
+            defaultFontWeightScale.c_str());
+    }
+    return defaultFontWeightScale;
+}
+} // namespace
+
+UiAppearanceAbility::UiAppearanceParam::UiAppearanceParam()
+    : fontWeightScale(GetDefaultFontWeightScaleValue(BASE_SCALE))
+{}
+
 UiAppearanceEventSubscriber::UiAppearanceEventSubscriber(const EventFwk::CommonEventSubscribeInfo& subscriberInfo,
     const std::function<void(const int32_t)>& userSwitchCallback)
     : EventFwk::CommonEventSubscriber(subscriberInfo), userSwitchCallback_(userSwitchCallback)
@@ -218,6 +235,7 @@ void UiAppearanceAbility::DoCompatibleProcess()
     }
     std::string fontWeightSize = BASE_SCALE;
     if (getOldParam(FONT_Weight_SCAL_FOR_USER0, fontWeightSize)) {
+        fontWeightSize = GetDefaultFontWeightScaleValue(fontWeightSize);
         for (auto id : userIds) {
             if (isParamAllreadaySetted(FontWeightScaleParamAssignUser(id))) {
                 continue;
@@ -242,7 +260,7 @@ void UiAppearanceAbility::DoInitProcess()
         std::string fontSize = BASE_SCALE;
         GetParameterWrap(FontScaleParamAssignUser(userId), fontSize);
 
-        std::string fontWeight = BASE_SCALE;
+        std::string fontWeight = GetDefaultFontWeightScaleValue(BASE_SCALE);
         GetParameterWrap(FontWeightScaleParamAssignUser(userId), fontWeight);
 
         UiAppearanceParam tmpParam;

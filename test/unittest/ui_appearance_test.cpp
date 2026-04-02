@@ -38,10 +38,15 @@ static constexpr int UISERVER_UID = 3050;
 namespace OHOS {
 namespace ArkUi::UiAppearance {
 
+void MockSetParameterValue(const std::string& key, const std::string& value);
+void MockClearParameterValues();
+void MockSetGetParameterShouldFail(bool shouldFail);
+
 const int DAY_TO_SECOND = 24 * 60 * 60;
 const int DAY_TO_MINUTE = 24 * 60;
 const int SECOND_TO_MILLI = 1000;
 const int MINUTE_TO_SECOND = 60;
+static const std::string STANDARD_FONT_WEIGHT = "const.standard_font_weight";
 
 class UiAppearanceAbilityTest : public UiAppearanceAbility {
 public:
@@ -82,10 +87,12 @@ void DarkModeTest::SetUp(void)
 {
     userId_ = geteuid();
     seteuid(UISERVER_UID);
+    MockClearParameterValues();
 }
 
 void DarkModeTest::TearDown(void)
 {
+    MockClearParameterValues();
     seteuid(userId_);
 }
 
@@ -326,6 +333,52 @@ HWTEST_F(DarkModeTest, ui_appearance_test_011, TestSize.Level0)
     test->GetFontWeightScale(scaleGet, result);
     ASSERT_EQ(result, UiAppearanceAbilityErrCode::SUCCEEDED);
     EXPECT_EQ(scale, scaleGet);
+}
+
+/**
+ * @tc.name: ui_appearance_test_012
+ * @tc.desc: Test font weight default value is read from standard_font_weight.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DarkModeTest, ui_appearance_test_012, TestSize.Level0)
+{
+    LOGI("Test font weight default value is read from standard_font_weight.");
+
+    MockSetParameterValue(STANDARD_FONT_WEIGHT, "1.75");
+    UiAppearanceAbility::UiAppearanceParam param;
+    EXPECT_EQ(param.fontWeightScale, "1.75");
+}
+
+/**
+ * @tc.name: ui_appearance_test_013
+ * @tc.desc: Test font weight default value falls back to BASE_SCALE when parameter read fails.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DarkModeTest, ui_appearance_test_013, TestSize.Level0)
+{
+    LOGI("Test font weight default value falls back to BASE_SCALE when parameter read fails.");
+
+    MockSetGetParameterShouldFail(true);
+    UiAppearanceAbility::UiAppearanceParam param;
+    EXPECT_EQ(param.fontWeightScale, "1");
+}
+
+/**
+ * @tc.name: ui_appearance_test_014
+ * @tc.desc: Test GetFontWeightScale keeps current external fallback behavior.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DarkModeTest, ui_appearance_test_014, TestSize.Level0)
+{
+    LOGI("Test GetFontWeightScale keeps current external fallback behavior.");
+
+    MockSetParameterValue(STANDARD_FONT_WEIGHT, "1.75");
+    auto test = DarkModeTest::GetUiAppearanceAbilityTest();
+    std::string scaleGet;
+    int32_t result = -1;
+    test->GetFontWeightScale(scaleGet, result);
+    ASSERT_EQ(result, UiAppearanceAbilityErrCode::SUCCEEDED);
+    EXPECT_EQ(scaleGet, "1");
 }
 } // namespace ArkUi::UiAppearance
 } // namespace OHOS
