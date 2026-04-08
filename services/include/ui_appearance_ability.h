@@ -49,6 +49,7 @@ class UiAppearanceAbility : public SystemAbility, public UiAppearanceAbilityStub
 
 public:
     struct UiAppearanceParam {
+        UiAppearanceParam();
         DarkMode darkMode = DarkMode::ALWAYS_LIGHT;
         std::string fontScale = "1";
         std::string fontWeightScale = "1";
