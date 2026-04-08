@@ -351,10 +351,80 @@ HWTEST_F(DarkModeTest, ui_appearance_test_012, TestSize.Level0)
 
 /**
  * @tc.name: ui_appearance_test_013
- * @tc.desc: Test font weight default value falls back to BASE_SCALE when parameter read fails.
+ * @tc.desc: Test font weight default value falls back to BASE_SCALE when standard value is zero.
  * @tc.type: FUNC
  */
 HWTEST_F(DarkModeTest, ui_appearance_test_013, TestSize.Level0)
+{
+    LOGI("Test font weight default value falls back to BASE_SCALE when standard value is zero.");
+
+    MockSetParameterValue(STANDARD_FONT_WEIGHT, "0");
+    UiAppearanceAbility::UiAppearanceParam param;
+    EXPECT_EQ(param.fontWeightScale, "1");
+}
+
+/**
+ * @tc.name: ui_appearance_test_014
+ * @tc.desc: Test font weight default value falls back to BASE_SCALE when standard value is negative.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DarkModeTest, ui_appearance_test_014, TestSize.Level0)
+{
+    LOGI("Test font weight default value falls back to BASE_SCALE when standard value is negative.");
+
+    MockSetParameterValue(STANDARD_FONT_WEIGHT, "-1");
+    UiAppearanceAbility::UiAppearanceParam param;
+    EXPECT_EQ(param.fontWeightScale, "1");
+}
+
+/**
+ * @tc.name: ui_appearance_test_015
+ * @tc.desc: Test font weight default value falls back to BASE_SCALE when standard value is too large.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DarkModeTest, ui_appearance_test_015, TestSize.Level0)
+{
+    LOGI("Test font weight default value falls back to BASE_SCALE when standard value is too large.");
+
+    MockSetParameterValue(STANDARD_FONT_WEIGHT, "5.1");
+    UiAppearanceAbility::UiAppearanceParam param;
+    EXPECT_EQ(param.fontWeightScale, "1");
+}
+
+/**
+ * @tc.name: ui_appearance_test_016
+ * @tc.desc: Test font weight default value falls back to BASE_SCALE when standard value is invalid.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DarkModeTest, ui_appearance_test_016, TestSize.Level0)
+{
+    LOGI("Test font weight default value falls back to BASE_SCALE when standard value is invalid.");
+
+    MockSetParameterValue(STANDARD_FONT_WEIGHT, "abc");
+    UiAppearanceAbility::UiAppearanceParam param;
+    EXPECT_EQ(param.fontWeightScale, "1");
+}
+
+/**
+ * @tc.name: ui_appearance_test_017
+ * @tc.desc: Test font weight default value falls back to BASE_SCALE when standard value is partially invalid.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DarkModeTest, ui_appearance_test_017, TestSize.Level0)
+{
+    LOGI("Test font weight default value falls back to BASE_SCALE when standard value is partially invalid.");
+
+    MockSetParameterValue(STANDARD_FONT_WEIGHT, "1.2abc");
+    UiAppearanceAbility::UiAppearanceParam param;
+    EXPECT_EQ(param.fontWeightScale, "1");
+}
+
+/**
+ * @tc.name: ui_appearance_test_018
+ * @tc.desc: Test font weight default value falls back to BASE_SCALE when parameter read fails.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DarkModeTest, ui_appearance_test_018, TestSize.Level0)
 {
     LOGI("Test font weight default value falls back to BASE_SCALE when parameter read fails.");
 
@@ -364,11 +434,109 @@ HWTEST_F(DarkModeTest, ui_appearance_test_013, TestSize.Level0)
 }
 
 /**
- * @tc.name: ui_appearance_test_014
+ * @tc.name: ui_appearance_test_019
+ * @tc.desc: Test font weight default value accepts valid fractional scale in range.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DarkModeTest, ui_appearance_test_019, TestSize.Level0)
+{
+    LOGI("Test font weight default value accepts valid fractional scale in range.");
+
+    MockSetParameterValue(STANDARD_FONT_WEIGHT, "0.5");
+    UiAppearanceAbility::UiAppearanceParam param;
+    EXPECT_EQ(param.fontWeightScale, "0.5");
+}
+
+/**
+ * @tc.name: ui_appearance_test_020
+ * @tc.desc: Test font weight default value accepts max scale with zero fraction.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DarkModeTest, ui_appearance_test_020, TestSize.Level0)
+{
+    LOGI("Test font weight default value accepts max scale with zero fraction.");
+
+    MockSetParameterValue(STANDARD_FONT_WEIGHT, "5.0");
+    UiAppearanceAbility::UiAppearanceParam param;
+    EXPECT_EQ(param.fontWeightScale, "5.0");
+}
+
+/**
+ * @tc.name: ui_appearance_test_021
+ * @tc.desc: Test font weight default value accepts max scale with trailing zeros.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DarkModeTest, ui_appearance_test_021, TestSize.Level0)
+{
+    LOGI("Test font weight default value accepts max scale with trailing zeros.");
+
+    MockSetParameterValue(STANDARD_FONT_WEIGHT, "5.00");
+    UiAppearanceAbility::UiAppearanceParam param;
+    EXPECT_EQ(param.fontWeightScale, "5.00");
+}
+
+/**
+ * @tc.name: ui_appearance_test_022
+ * @tc.desc: Test font weight default value accepts explicit plus sign under strtod rules.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DarkModeTest, ui_appearance_test_022, TestSize.Level0)
+{
+    LOGI("Test font weight default value accepts explicit plus sign under strtod rules.");
+
+    MockSetParameterValue(STANDARD_FONT_WEIGHT, "+1.5");
+    UiAppearanceAbility::UiAppearanceParam param;
+    EXPECT_EQ(param.fontWeightScale, "+1.5");
+}
+
+/**
+ * @tc.name: ui_appearance_test_023
+ * @tc.desc: Test font weight default value accepts leading whitespace under strtod rules.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DarkModeTest, ui_appearance_test_023, TestSize.Level0)
+{
+    LOGI("Test font weight default value accepts leading whitespace under strtod rules.");
+
+    MockSetParameterValue(STANDARD_FONT_WEIGHT, " 1.5");
+    UiAppearanceAbility::UiAppearanceParam param;
+    EXPECT_EQ(param.fontWeightScale, " 1.5");
+}
+
+/**
+ * @tc.name: ui_appearance_test_024
+ * @tc.desc: Test font weight default value accepts trailing whitespace under strtod rules.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DarkModeTest, ui_appearance_test_024, TestSize.Level0)
+{
+    LOGI("Test font weight default value accepts trailing whitespace under strtod rules.");
+
+    MockSetParameterValue(STANDARD_FONT_WEIGHT, "7");
+    UiAppearanceAbility::UiAppearanceParam param;
+    EXPECT_EQ(param.fontWeightScale, "1");
+}
+
+/**
+ * @tc.name: ui_appearance_test_025
+ * @tc.desc: Test font weight default value falls back to BASE_SCALE when standard value overflows.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DarkModeTest, ui_appearance_test_025, TestSize.Level0)
+{
+    LOGI("Test font weight default value falls back to BASE_SCALE when standard value overflows.");
+
+    MockSetParameterValue(STANDARD_FONT_WEIGHT, "1e309");
+    UiAppearanceAbility::UiAppearanceParam param;
+    EXPECT_EQ(param.fontWeightScale, "1");
+}
+
+/**
+ * @tc.name: ui_appearance_test_026
  * @tc.desc: Test GetFontWeightScale keeps current external fallback behavior.
  * @tc.type: FUNC
  */
-HWTEST_F(DarkModeTest, ui_appearance_test_014, TestSize.Level0)
+HWTEST_F(DarkModeTest, ui_appearance_test_026, TestSize.Level0)
 {
     LOGI("Test GetFontWeightScale keeps current external fallback behavior.");
 

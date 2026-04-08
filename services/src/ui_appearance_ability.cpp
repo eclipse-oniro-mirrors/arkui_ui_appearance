@@ -15,6 +15,7 @@
 
 #include "ui_appearance_ability.h"
 
+#include <cstdlib>
 #include <string>
 
 #include "accesstoken_kit.h"
@@ -59,12 +60,35 @@ const static std::string NOT_FIRST_UPGRADE = "0";
 namespace OHOS {
 namespace ArkUi::UiAppearance {
 namespace {
+static constexpr double MIN_FONT_SCALE = 0.0;
+static constexpr double MAX_FONT_SCALE = 5.0;
+
+bool IsValidFontWeightScaleString(const std::string& value)
+{
+    if (value.empty()) {
+        return false;
+    }
+
+    errno = 0;
+    char* endPtr = nullptr;
+    double fontWeightScale = std::strtod(value.c_str(), &endPtr);
+    if (endPtr == value.c_str() || endPtr == nullptr || *endPtr != '\0' || errno == ERANGE) {
+        return false;
+    }
+    return fontWeightScale > MIN_FONT_SCALE && fontWeightScale <= MAX_FONT_SCALE;
+}
+
 std::string GetDefaultFontWeightScaleValue(const std::string& defaultValue)
 {
     std::string defaultFontWeightScale = defaultValue;
     if (GetParameterWrap(STANDARD_FONT_WEIGHT, defaultFontWeightScale)) {
         LOGI("get default fontWeightScale from %{public}s, value:%{public}s", STANDARD_FONT_WEIGHT.c_str(),
             defaultFontWeightScale.c_str());
+        if (!IsValidFontWeightScaleString(defaultFontWeightScale)) {
+            LOGW("invalid %{public}s value:%{public}s, fallback to defaultValue:%{public}s",
+                STANDARD_FONT_WEIGHT.c_str(), defaultFontWeightScale.c_str(), defaultValue.c_str());
+            return defaultValue;
+        }
     }
     return defaultFontWeightScale;
 }
