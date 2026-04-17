@@ -26,6 +26,7 @@ config("ui_appearance_service_config") {
   include_dirs = [
     "include",
     "utils/include/",
+    "../interfaces/kits/native/include",
     "${target_gen_dir}",
   ]
 }

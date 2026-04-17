@@ -20,6 +20,7 @@ ohos_unittest("ui_appearance_test") {
   include_dirs = [
     "${ui_appearance_services_path}/include/",
     "${ui_appearance_services_utils_path}/include/",
+    "${ui_appearance_interfaces_kits_native_path}/include/",
   ]
 
   sources = [
@@ -47,7 +48,11 @@ ohos_unittest("ui_appearance_test") {
     cflags += [ "-DBINDER_IPC_32BIT" ]
   }
 
-  deps = [ "${ui_appearance_services_path}:ui_appearance_ability_stub" ]
+  deps = [
+    "${ui_appearance_interfaces_kits_native_path}:ui_appearance_kit",
+    "${ui_appearance_services_path}:ui_appearance_ability_stub",
+    "${ui_appearance_services_path}:ui_appearance_client",
+  ]
   external_deps = [
     "ability_base:configuration",
     "ability_runtime:app_manager",
