@@ -17,6 +17,7 @@ group("ui_appearance_packages") {
   deps = [
     "etc/para:ui_appearance.para",
     "etc/para:ui_appearance.para.dac",
+    "interfaces/kits/native:ui_appearance_kit",
     "interfaces/kits/napi:uiappearance",
     "sa_profile:arkui_ui_appearance_sa_profiles",
     "services:ui_appearance_service",

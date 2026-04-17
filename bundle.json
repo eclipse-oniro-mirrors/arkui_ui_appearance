@@ -50,6 +50,14 @@
         "//foundation/arkui/ui_appearance/interfaces/ets/ani:ui_appearance_ani_package"
       ],
       "inner_kits": [
+        {
+          "header_base": "//foundation/arkui/ui_appearance/interfaces/kits/native/include",
+          "header_files": [
+            "ui_appearance.h",
+            "ui_appearance_types.h"
+          ],
+          "name": "//foundation/arkui/ui_appearance/interfaces/kits/native:ui_appearance_kit"
+        }
       ],
       "test": [
         "//foundation/arkui/ui_appearance/test/unittest:unittest"

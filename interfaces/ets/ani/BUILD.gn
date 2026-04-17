@@ -26,7 +26,10 @@ group("ui_appearance_ani_package") {
 ohos_shared_library("ui_appearance_ani") {
   deps = [ "$ui_appearance_services_path:ui_appearance_client" ]
 
-  include_dirs = [ "include/" ]
+  include_dirs = [
+    "include/",
+    "../../kits/native/include",
+  ]
   sources = [ "./src/ui_appearance.cpp" ]
   external_deps = [
     "c_utils:utils",

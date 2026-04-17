@@ -27,9 +27,11 @@
 #define private public
 #define protected public
 #include "ui_appearance_ability.h"
+#include "ui_appearance.h"
 #undef private
 #undef protected
 #include "ui_appearance_log.h"
+#include "ui_appearance_ability_client.h"
 #include "alarm_timer_manager.h"
 
 using namespace testing::ext;
@@ -93,6 +95,19 @@ void DarkModeTest::SetUp(void)
 void DarkModeTest::TearDown(void)
 {
     MockClearParameterValues();
+    UIAppearance::setDarkModeFunc_ = [](DarkMode mode) {
+        return static_cast<UiAppearanceAbilityErrCode>(UiAppearanceAbilityClient::GetInstance()->SetDarkMode(mode));
+    };
+    UIAppearance::getDarkModeFunc_ = [](DarkMode& mode) {
+        int32_t result = UiAppearanceAbilityClient::GetInstance()->GetDarkMode();
+        if (result == static_cast<int32_t>(DarkMode::ALWAYS_DARK) ||
+            result == static_cast<int32_t>(DarkMode::ALWAYS_LIGHT) ||
+            result == static_cast<int32_t>(DarkMode::UNKNOWN)) {
+            mode = static_cast<DarkMode>(result);
+            return UiAppearanceAbilityErrCode::SUCCEEDED;
+        }
+        return static_cast<UiAppearanceAbilityErrCode>(result);
+    };
     seteuid(userId_);
 }
 
@@ -547,6 +562,88 @@ HWTEST_F(DarkModeTest, ui_appearance_test_026, TestSize.Level0)
     test->GetFontWeightScale(scaleGet, result);
     ASSERT_EQ(result, UiAppearanceAbilityErrCode::SUCCEEDED);
     EXPECT_EQ(scaleGet, "1");
+}
+
+/**
+ * @tc.name: ui_appearance_test_027
+ * @tc.desc: Test UIAppearance::SetDarkMode returns succeeded when service succeeds.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DarkModeTest, ui_appearance_test_027, TestSize.Level0)
+{
+    auto test = DarkModeTest::GetUiAppearanceAbilityTest();
+    UIAppearance::setDarkModeFunc_ = [test](DarkMode mode) {
+        int32_t result = UiAppearanceAbilityErrCode::SYS_ERR;
+        test->SetDarkMode(mode, result);
+        return static_cast<UiAppearanceAbilityErrCode>(result);
+    };
+
+    EXPECT_EQ(UIAppearance::SetDarkMode(DarkMode::ALWAYS_DARK), UiAppearanceAbilityErrCode::SUCCEEDED);
+}
+
+/**
+ * @tc.name: ui_appearance_test_028
+ * @tc.desc: Test UIAppearance::SetDarkMode returns invalid arg when passing unknown mode.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DarkModeTest, ui_appearance_test_028, TestSize.Level0)
+{
+    auto test = DarkModeTest::GetUiAppearanceAbilityTest();
+    UIAppearance::setDarkModeFunc_ = [test](DarkMode mode) {
+        int32_t result = UiAppearanceAbilityErrCode::SYS_ERR;
+        test->SetDarkMode(mode, result);
+        return static_cast<UiAppearanceAbilityErrCode>(result);
+    };
+
+    EXPECT_EQ(UIAppearance::SetDarkMode(DarkMode::UNKNOWN), UiAppearanceAbilityErrCode::INVALID_ARG);
+}
+
+/**
+ * @tc.name: ui_appearance_test_029
+ * @tc.desc: Test UIAppearance::SetDarkMode returns permission err when permission verification fails.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DarkModeTest, ui_appearance_test_029, TestSize.Level0)
+{
+    UIAppearance::setDarkModeFunc_ = [](DarkMode mode) {
+        return UiAppearanceAbilityErrCode::PERMISSION_ERR;
+    };
+
+    EXPECT_EQ(UIAppearance::SetDarkMode(DarkMode::ALWAYS_DARK),
+        UiAppearanceAbilityErrCode::PERMISSION_ERR);
+}
+
+/**
+ * @tc.name: ui_appearance_test_030
+ * @tc.desc: Test UIAppearance::GetDarkMode returns succeeded and writes output mode.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DarkModeTest, ui_appearance_test_030, TestSize.Level0)
+{
+    UIAppearance::getDarkModeFunc_ = [](DarkMode& mode) {
+        mode = DarkMode::ALWAYS_DARK;
+        return UiAppearanceAbilityErrCode::SUCCEEDED;
+    };
+
+    DarkMode mode = DarkMode::ALWAYS_LIGHT;
+    EXPECT_EQ(UIAppearance::GetDarkMode(mode), UiAppearanceAbilityErrCode::SUCCEEDED);
+    EXPECT_EQ(mode, DarkMode::ALWAYS_DARK);
+}
+
+/**
+ * @tc.name: ui_appearance_test_031
+ * @tc.desc: Test UIAppearance::GetDarkMode returns sys err and keeps output mode unchanged on failure.
+ * @tc.type: FUNC
+ */
+HWTEST_F(DarkModeTest, ui_appearance_test_031, TestSize.Level0)
+{
+    UIAppearance::getDarkModeFunc_ = [](DarkMode& mode) {
+        return UiAppearanceAbilityErrCode::SYS_ERR;
+    };
+
+    DarkMode mode = DarkMode::ALWAYS_LIGHT;
+    EXPECT_EQ(UIAppearance::GetDarkMode(mode), UiAppearanceAbilityErrCode::SYS_ERR);
+    EXPECT_EQ(mode, DarkMode::ALWAYS_LIGHT);
 }
 } // namespace ArkUi::UiAppearance
 } // namespace OHOS

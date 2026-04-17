@@ -34,4 +34,5 @@ enum UiAppearanceAbilityErrCode : int32_t {
 };
 } // namespace ArkUi::UiAppearance
 } // namespace OHOS
-#endif // UI_APPEARANCE_LOG_H
+
+#endif // UI_APPEARANCE_TYPES_H
