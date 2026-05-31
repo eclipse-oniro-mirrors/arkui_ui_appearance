@@ -43,6 +43,7 @@ public:
     int32_t SetFontScale(std::string& fontScale);
     int32_t GetFontWeightScale(std::string& fontWeightScale);
     int32_t SetFontWeightScale(std::string& fontWeightScale);
+    int32_t SetSettingData(std::string key, std::string value);
     void OnRemoteSaDied(const wptr<IRemoteObject>& object);
 
 private:

@@ -27,12 +27,16 @@ UIAppearance::SetDarkModeFunc UIAppearance::setDarkModeFunc_ = [](DarkMode mode)
 UIAppearance::GetDarkModeFunc UIAppearance::getDarkModeFunc_ = [](DarkMode& mode) {
     int32_t result = UiAppearanceAbilityClient::GetInstance()->GetDarkMode();
     if (result == static_cast<int32_t>(DarkMode::ALWAYS_DARK) ||
-        result == static_cast<int32_t>(DarkMode::ALWAYS_LIGHT) ||
-        result == static_cast<int32_t>(DarkMode::UNKNOWN)) {
+        result == static_cast<int32_t>(DarkMode::ALWAYS_LIGHT) || result == static_cast<int32_t>(DarkMode::UNKNOWN)) {
         mode = static_cast<DarkMode>(result);
         return UiAppearanceAbilityErrCode::SUCCEEDED;
     }
     return static_cast<UiAppearanceAbilityErrCode>(result);
+};
+
+UIAppearance::SetSettingDataFunc UIAppearance::setSettingDataFunc_ = [](std::string key, std::string value) {
+    return static_cast<UiAppearanceAbilityErrCode>(
+        UiAppearanceAbilityClient::GetInstance()->SetSettingData(key, value));
 };
 
 UiAppearanceAbilityErrCode UIAppearance::SetDarkMode(DarkMode mode)
@@ -43,6 +47,17 @@ UiAppearanceAbilityErrCode UIAppearance::SetDarkMode(DarkMode mode)
 UiAppearanceAbilityErrCode UIAppearance::GetDarkMode(DarkMode& mode)
 {
     return getDarkModeFunc_(mode);
+}
+
+UiAppearanceAbilityErrCode UIAppearance::SetSettingData(std::string key, std::string value)
+{
+    return setSettingDataFunc_(key, value);
+}
+
+extern "C" __attribute__((visibility("default"))) int32_t OH_UIAppearance_SetSettingDate(
+    const char* key, const char* value)
+{
+    return UIAppearance::SetSettingData(std::string(key), std::string(value));
 }
 } // namespace UiAppearance
 } // namespace ArkUi

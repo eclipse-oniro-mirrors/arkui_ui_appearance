@@ -20,4 +20,5 @@ interface OHOS.ArkUi.UiAppearance.IUiAppearanceAbility {
     int SetFontScale([in] String fontScale);
     int GetFontWeightScale([out] String fontWeightScale);
     int SetFontWeightScale([in] String fontWeightScale);
+    int SetSettingData([in] String key, [in] String value);
 }

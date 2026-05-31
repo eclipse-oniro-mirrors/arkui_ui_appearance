@@ -18,6 +18,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <string>
 
 #include "ui_appearance_types.h"
 
@@ -28,13 +29,16 @@ class __attribute__((visibility("default"))) UIAppearance {
 public:
     static UiAppearanceAbilityErrCode SetDarkMode(DarkMode mode);
     static UiAppearanceAbilityErrCode GetDarkMode(DarkMode& mode);
+    static UiAppearanceAbilityErrCode SetSettingData(std::string key, std::string value);
 
 private:
     using SetDarkModeFunc = std::function<UiAppearanceAbilityErrCode(DarkMode)>;
     using GetDarkModeFunc = std::function<UiAppearanceAbilityErrCode(DarkMode&)>;
+    using SetSettingDataFunc = std::function<UiAppearanceAbilityErrCode(std::string, std::string)>;
 
     static SetDarkModeFunc setDarkModeFunc_;
     static GetDarkModeFunc getDarkModeFunc_;
+    static SetSettingDataFunc setSettingDataFunc_;
 };
 } // namespace UiAppearance
 } // namespace ArkUi

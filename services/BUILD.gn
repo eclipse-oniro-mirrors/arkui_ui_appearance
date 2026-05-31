@@ -132,6 +132,7 @@ ohos_shared_library("ui_appearance_client") {
     "ipc:ipc_single",
     "safwk:system_ability_fwk",
     "samgr:samgr_proxy",
+    "access_token:libtokenid_sdk"
   ]
 
   cflags_cc = [

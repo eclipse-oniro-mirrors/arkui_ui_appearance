@@ -22,6 +22,8 @@
 #include "ui_appearance_log.h"
 #include "xcollie/xcollie.h"
 #include "xcollie/xcollie_define.h"
+#include "ipc_skeleton.h"
+#include "tokenid_kit.h"
 
 namespace OHOS {
 namespace ArkUi::UiAppearance {
@@ -132,6 +134,26 @@ int32_t UiAppearanceAbilityClient::GetFontWeightScale(std::string &fontWeightSca
     }
     return funcRes;
 }
+
+int32_t UiAppearanceAbilityClient::SetSettingData(std::string key, std::string value)
+{
+    if (!GetUiAppearanceServiceProxy()) {
+        LOGE("SetSettingData quit because redoing CreateUiAppearanceServiceProxy failed.");
+        return UiAppearanceAbilityErrCode::SYS_ERR;
+    }
+    auto selfToken = IPCSkeleton::GetSelfTokenID();
+    if (!Security::AccessToken::TokenIdKit::IsSystemAppByFullTokenID(selfToken)) {
+        LOGE("SetSettingData quit because caller is not system app.");
+        return UiAppearanceAbilityErrCode::NOT_SYSTEM_APP;
+    }
+    int32_t funcRes = -1;
+    auto res = GetUiAppearanceServiceProxy()->SetSettingData(key, value, funcRes);
+    if (res != ERR_OK) {
+        return UiAppearanceAbilityErrCode::SYS_ERR;
+    }
+    return funcRes;
+}
+
 
 sptr<IUiAppearanceAbility> UiAppearanceAbilityClient::CreateUiAppearanceServiceProxy()
 {
