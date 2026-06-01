@@ -356,7 +356,6 @@ static napi_value JSGetDarkMode(napi_env env, napi_callback_info info)
 
 static napi_value JSGetFontScale(napi_env env, napi_callback_info info)
 {
-    LOGI("JSGetFontScale begin.");
     napi_value result = nullptr;
     napi_get_undefined(env, &result);
     size_t argc = 0;
