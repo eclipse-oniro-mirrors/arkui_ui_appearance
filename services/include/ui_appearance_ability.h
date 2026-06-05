@@ -63,6 +63,7 @@ public:
     ErrCode SetFontScale(const std::string& fontScale, int32_t& funcResult) override;
     ErrCode GetFontWeightScale(std::string& fontWeightScale, int32_t& funcResult) override;
     ErrCode SetFontWeightScale(const std::string& fontWeightScale, int32_t& funcResult) override;
+    ErrCode SetSettingData(const std::string& key, const std::string& value, int32_t& funcResult) override;
 
 protected:
     void OnStart() override;
@@ -110,6 +111,7 @@ private:
     std::atomic<bool> isInitializationFinished_ = false;
     std::set<int32_t> userSwitchUpdateConfigurationOnceFlag_;
     std::mutex userSwitchUpdateConfigurationOnceFlagMutex_;
+    std::mutex settingMutex_;
 };
 } // namespace ArkUi::UiAppearance
 } // namespace OHOS

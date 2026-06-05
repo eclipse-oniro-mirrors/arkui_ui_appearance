@@ -34,6 +34,7 @@
 #include "background_app_color_switch_settings.h"
 #include "background_app_info.h"
 #include "configuration_policy.h"
+#include "setting_data_manager.h"
 
 namespace {
 static const std::string LIGHT = "light";
@@ -777,6 +778,17 @@ ErrCode UiAppearanceAbility::GetFontWeightScale(std::string& fontWeightScale, in
     }
 
     LOGD("get font weight scale :%{public}s", fontWeightScale.c_str());
+    funcResult = SUCCEEDED;
+    return SUCCEEDED;
+}
+
+ErrCode UiAppearanceAbility::SetSettingData(const std::string& key, const std::string& value, int32_t& funcResult)
+{
+    SettingDataManager& manager = SettingDataManager::GetInstance();
+    std::lock_guard lock(settingMutex_);
+    manager.SetStringValue(key, value, GetCallingUserId());
+
+    LOGD("set setting data key:%{public}s value:%{public}s", key.c_str(), value.c_str());
     funcResult = SUCCEEDED;
     return SUCCEEDED;
 }
