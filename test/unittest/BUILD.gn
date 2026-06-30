@@ -72,6 +72,7 @@ ohos_unittest("ui_appearance_test") {
     "samgr:samgr_proxy",
     "time_service:time_client",
     "window_manager:session_manager_lite",
+    "access_token:libtokenid_sdk",
   ]
 }
 

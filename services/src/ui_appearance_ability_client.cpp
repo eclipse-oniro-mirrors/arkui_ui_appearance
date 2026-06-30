@@ -141,11 +141,6 @@ int32_t UiAppearanceAbilityClient::SetSettingData(std::string key, std::string v
         LOGE("SetSettingData quit because redoing CreateUiAppearanceServiceProxy failed.");
         return UiAppearanceAbilityErrCode::SYS_ERR;
     }
-    auto selfToken = IPCSkeleton::GetSelfTokenID();
-    if (!Security::AccessToken::TokenIdKit::IsSystemAppByFullTokenID(selfToken)) {
-        LOGE("SetSettingData quit because caller is not system app.");
-        return UiAppearanceAbilityErrCode::NOT_SYSTEM_APP;
-    }
     int32_t funcRes = -1;
     auto res = GetUiAppearanceServiceProxy()->SetSettingData(key, value, funcRes);
     if (res != ERR_OK) {
