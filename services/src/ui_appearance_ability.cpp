@@ -35,6 +35,7 @@
 #include "background_app_info.h"
 #include "configuration_policy.h"
 #include "setting_data_manager.h"
+#include "tokenid_kit.h"
 
 namespace {
 static const std::string LIGHT = "light";
@@ -784,6 +785,10 @@ ErrCode UiAppearanceAbility::GetFontWeightScale(std::string& fontWeightScale, in
 
 ErrCode UiAppearanceAbility::SetSettingData(const std::string& key, const std::string& value, int32_t& funcResult)
 {
+    auto selfToken = IPCSkeleton::GetCallingFullTokenID();
+    if (!Security::AccessToken::TokenIdKit::IsSystemAppByFullTokenID(selfToken)) {
+        return UiAppearanceAbilityErrCode::NOT_SYSTEM_APP;
+    }
     SettingDataManager& manager = SettingDataManager::GetInstance();
     std::lock_guard lock(settingMutex_);
     manager.SetStringValue(key, value, GetCallingUserId());
