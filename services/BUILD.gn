@@ -59,6 +59,7 @@ ohos_shared_library("ui_appearance_service") {
   }
 
   sources = [
+    "src/account_context.cpp",
     "src/dark_mode_manager.cpp",
     "src/dark_mode_temp_state_manager.cpp",
     "src/screen_switch_operator_manager.cpp",
@@ -75,6 +76,10 @@ ohos_shared_library("ui_appearance_service") {
   output_values = get_target_outputs(":ui_appearance_ability_interface")
   sources += filter_include(output_values, [ "*_stub.cpp" ])
   deps = [ ":ui_appearance_ability_interface" ]
+
+  if (target_platform == "car") {
+    defines = [ "ENABLE_MULTIPLE_OS_ACCOUNT_SUBSPACE" ]
+  }
 
   public_configs = [ ":ui_appearance_service_config" ]
 

@@ -16,10 +16,18 @@
 #ifndef UI_APPEARANCE_ABILITY_H
 #define UI_APPEARANCE_ABILITY_H
 
+#include <atomic>
 #include <cstdint>
 #include <functional>
+#include <list>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <set>
 #include <string>
+#include <vector>
 
+#include "account_context.h"
 #include "appmgr/app_mgr_proxy.h"
 #include "common_event_manager.h"
 #include "system_ability.h"
@@ -31,7 +39,8 @@ namespace ArkUi::UiAppearance {
 class UiAppearanceEventSubscriber : public EventFwk::CommonEventSubscriber {
 public:
     UiAppearanceEventSubscriber(const EventFwk::CommonEventSubscribeInfo& subscriberInfo,
-        const std::function<void(const int32_t)>& userSwitchCallback);
+        const std::function<void(const int32_t)>& userSwitchCallback,
+        const std::function<void(const int32_t, const int32_t)>& subProfileSwitchCallback);
     ~UiAppearanceEventSubscriber() override = default;
     void OnReceiveEvent(const EventFwk::CommonEventData& data) override;
 
@@ -41,6 +50,7 @@ public:
 
 private:
     std::function<void(const int32_t)> userSwitchCallback_;
+    std::function<void(const int32_t, const int32_t)> subProfileSwitchCallback_;
     std::once_flag bootCompleteFlag_;
 };
 
@@ -77,22 +87,29 @@ private:
     bool VerifyAccessToken(const std::string& permissionName);
     void Init();
     void SubscribeCommonEvent();
+    void HandleSubProfileSwitched(int32_t userId, int32_t subProfileId);
     bool UpdateConfiguration(const AppExecFwk::Configuration& configuration, const int32_t userId,
         const std::vector<std::int32_t>& effectiveUserIds = {});
     void DoCompatibleProcess();
     int32_t GetCallingUserId();
+    AccountContext GetCallingAccountContext();
+    AccountContext GetForegroundAccountContext(int32_t fallbackUserId);
     std::list<int32_t> GetUserIds();
     void UserSwitchFunc(const int32_t userId);
+    void AccountContextSwitchFunc(const AccountContext& context);
     void DoInitProcess();
 
-    void UpdateCurrentUserConfiguration(const int32_t userId, const bool isForceUpdate);
-    int32_t OnSetDarkMode(const int32_t userId, DarkMode mode);
-    DarkMode InitGetDarkMode(const int32_t userId);
-    int32_t OnSetFontScale(const int32_t userId, const std::string& fontScale);
-    int32_t OnSetFontWeightScale(const int32_t userId, const std::string& fontWeightScale);
+    void UpdateCurrentUserConfiguration(const AccountContext& context, const bool isForceUpdate);
+    int32_t OnSetDarkMode(const AccountContext& context, DarkMode mode);
+    DarkMode InitGetDarkMode(const AccountContext& context);
+    int32_t OnSetFontScale(const AccountContext& context, const std::string& fontScale);
+    int32_t OnSetFontWeightScale(const AccountContext& context, const std::string& fontWeightScale);
     std::string DarkNodeConfigurationAssignUser(const int32_t userId);
     std::string FontScaleConfigurationAssignUser(const int32_t userId);
     std::string FontWeightScaleConfigurationAssignUser(const int32_t userId);
+    std::string DarkModeParamAssignUser(const AccountContext& context);
+    std::string FontScaleParamAssignUser(const AccountContext& context);
+    std::string FontWeightScaleParamAssignUser(const AccountContext& context);
     std::string DarkModeParamAssignUser(const int32_t userId);
     std::string FontScaleParamAssignUser(const int32_t userId);
     std::string FontWeightScaleParamAssignUser(const int32_t userId);
@@ -101,15 +118,15 @@ private:
     void UpdateDarkModeCallback(bool isDarkMode, int32_t userId);
     bool BackGroundAppColorSwitch(sptr<AppExecFwk::IAppMgr> appManagerInstance, const int32_t userId);
     std::vector<std::int32_t> GetMultipleUsers();
-    void ConfigurePersistence(const bool isDarkMode, const int32_t userId, const std::string& paramValue);
-    int32_t ConfigurePersistence(const int32_t userId, DarkMode mode, const std::string& paramValue);
+    void ConfigurePersistence(const bool isDarkMode, const AccountContext& context, const std::string& paramValue);
+    int32_t ConfigurePersistence(const AccountContext& context, DarkMode mode, const std::string& paramValue);
 
     std::shared_ptr<UiAppearanceEventSubscriber> uiAppearanceEventSubscriber_;
     std::mutex usersParamMutex_;
-    std::map<int32_t, UiAppearanceParam> usersParam_;
+    std::map<AccountContext, UiAppearanceParam> usersParam_;
     std::atomic<bool> isNeedDoCompatibleProcess_ = false;
     std::atomic<bool> isInitializationFinished_ = false;
-    std::set<int32_t> userSwitchUpdateConfigurationOnceFlag_;
+    std::set<AccountContext> userSwitchUpdateConfigurationOnceFlag_;
     std::mutex userSwitchUpdateConfigurationOnceFlagMutex_;
     std::mutex settingMutex_;
 };

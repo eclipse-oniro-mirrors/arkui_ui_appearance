@@ -31,6 +31,7 @@ ohos_unittest("dark_mode_manager_test") {
   ]
 
   sources = [
+    "${ui_appearance_services_path}/src/account_context.cpp",
     "${ui_appearance_services_path}/src/dark_mode_manager.cpp",
     "${ui_appearance_services_path}/src/dark_mode_temp_state_manager.cpp",
     "${ui_appearance_services_path}/src/screen_switch_operator_manager.cpp",

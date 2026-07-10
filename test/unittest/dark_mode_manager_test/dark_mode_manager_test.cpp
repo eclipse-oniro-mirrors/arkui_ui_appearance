@@ -63,6 +63,7 @@ protected:
     {
         DarkModeManager& manager = DarkModeManager::GetInstance();
         manager.settingDataObservers_.clear();
+        manager.settingDataObserversContext_ = AccountContextHelper::CreateBaseContext(INVALID_USER_ID);
         manager.settingDataObserversUserId_ = INVALID_USER_ID;
         manager.darkModeStates_.clear();
         manager.updateCallback_ = nullptr;
@@ -86,6 +87,7 @@ protected:
     {
         DarkModeManager& manager = DarkModeManager::GetInstance();
         manager.settingDataObservers_.clear();
+        manager.settingDataObserversContext_ = AccountContextHelper::CreateBaseContext(INVALID_USER_ID);
         manager.settingDataObserversUserId_ = INVALID_USER_ID;
         manager.darkModeStates_.clear();
         manager.updateCallback_ = nullptr;
@@ -225,6 +227,7 @@ protected:
     void OnSwitchUserTest(const int32_t userId, const int32_t origUserId, const bool registerObsFail) const
     {
         DarkModeManager& manager = DarkModeManager::GetInstance();
+        manager.settingDataObserversContext_ = AccountContextHelper::CreateBaseContext(origUserId);
         manager.settingDataObserversUserId_ = origUserId;
 
         ExpectationSet expectSet;
@@ -265,6 +268,7 @@ protected:
     void RestartTimerNoChangeTest(const int32_t userId, const DarkModeMode mode) const
     {
         DarkModeManager& manager = DarkModeManager::GetInstance();
+        manager.settingDataObserversContext_ = AccountContextHelper::CreateBaseContext(userId);
         manager.settingDataObserversUserId_ = userId;
         manager.darkModeStates_[userId].settingMode = mode;
         EXPECT_EQ(manager.RestartTimer(), ERR_OK);
@@ -275,6 +279,7 @@ protected:
     {
         ExpectationSet expectSet;
         DarkModeManager& manager = DarkModeManager::GetInstance();
+        manager.settingDataObserversContext_ = AccountContextHelper::CreateBaseContext(userId);
         manager.settingDataObserversUserId_ = userId;
         manager.darkModeStates_[userId].settingMode = DarkModeMode::DARK_MODE_CUSTOM_AUTO;
         manager.darkModeStates_[userId].settingStartTime = startTime;
@@ -616,6 +621,7 @@ private:
         DarkModeManager& manager = DarkModeManager::GetInstance();
         SettingDataManager& settingDataManager = SettingDataManager::GetInstance();
 
+        manager.settingDataObserversContext_ = AccountContextHelper::CreateBaseContext(INVALID_USER_ID);
         manager.settingDataObserversUserId_ = INVALID_USER_ID;
         expectSet += EXPECT_CALL(settingDataManager, IsInitialized()).Times(1).After(expectSet).WillOnce(Return(true));
         auto checkRegisterObserver = [&updateFuncMap](const std::string& key,

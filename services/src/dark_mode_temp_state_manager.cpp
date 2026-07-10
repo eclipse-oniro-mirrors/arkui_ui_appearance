@@ -35,35 +35,45 @@ constexpr int32_t MINUTE_TO_SECOND = 60;
 
 void TemporaryColorModeManager::InitData(const int32_t userId)
 {
+    InitData(AccountContextHelper::CreateBaseContext(userId));
+}
+
+void TemporaryColorModeManager::InitData(const AccountContext& context)
+{
     TempColorModeInfo info;
     std::string temporaryColorModeValue = TEMPORARY_COLOR_MODE_NORMAL_STRING;
-    GetParameterWrap(TemporaryColorModeAssignUser(userId), temporaryColorModeValue);
+    GetParameterWrap(TemporaryColorModeAssignUser(context), temporaryColorModeValue);
     info.tempColorMode = temporaryColorModeValue == TEMPORARY_COLOR_MODE_NORMAL_STRING
                                 ? TempColorModeType::ColorModeNormal
                                 : TempColorModeType::ColorModeTemp;
     if (info.tempColorMode == TempColorModeType::ColorModeTemp) {
         std::string startTime = "0";
-        GetParameterWrap(TemporaryStateStartTimeAssignUser(userId), startTime);
+        GetParameterWrap(TemporaryStateStartTimeAssignUser(context), startTime);
         info.keepTemporaryStateStartTime = atoll(startTime.c_str());
 
         std::string endTime = "0";
-        GetParameterWrap(TemporaryStateEndTimeAssignUser(userId), endTime);
+        GetParameterWrap(TemporaryStateEndTimeAssignUser(context), endTime);
         info.keepTemporaryStateEndTime = atoll(endTime.c_str());
     }
     {
         std::lock_guard guard(multiUserTempColorModeMapMutex_);
-        multiUserTempColorModeMap_[userId] = info;
+        multiUserTempColorModeMap_[context] = info;
     }
-    LOGI("init temp colormode info userId:%{public}d, tempColorMode:%{public}d, keepStartTime:%{public}" PRId64
-         ", keepEndTime:%{public}" PRId64,
-        userId, static_cast<int32_t>(info.tempColorMode), info.keepTemporaryStateStartTime,
+    LOGI("init temp colormode info context:%{public}s, tempColorMode:%{public}d, keepStartTime:%{public}" PRId64
+         ", keepEndTime:%{public}" PRId64, AccountContextHelper::ToString(context).c_str(),
+        static_cast<int32_t>(info.tempColorMode), info.keepTemporaryStateStartTime,
         info.keepTemporaryStateEndTime);
 }
 
 bool TemporaryColorModeManager::IsColorModeTemporary(const int32_t userId)
 {
+    return IsColorModeTemporary(AccountContextHelper::CreateBaseContext(userId));
+}
+
+bool TemporaryColorModeManager::IsColorModeTemporary(const AccountContext& context)
+{
     std::lock_guard guard(multiUserTempColorModeMapMutex_);
-    auto it = multiUserTempColorModeMap_.find(userId);
+    auto it = multiUserTempColorModeMap_.find(context);
     if (it != multiUserTempColorModeMap_.end()) {
         return it->second.tempColorMode == TempColorModeType::ColorModeTemp;
     }
@@ -71,8 +81,13 @@ bool TemporaryColorModeManager::IsColorModeTemporary(const int32_t userId)
 }
 bool TemporaryColorModeManager::IsColorModeNormal(const int32_t userId)
 {
+    return IsColorModeNormal(AccountContextHelper::CreateBaseContext(userId));
+}
+
+bool TemporaryColorModeManager::IsColorModeNormal(const AccountContext& context)
+{
     std::lock_guard guard(multiUserTempColorModeMapMutex_);
-    auto it = multiUserTempColorModeMap_.find(userId);
+    auto it = multiUserTempColorModeMap_.find(context);
     if (it != multiUserTempColorModeMap_.end()) {
         return it->second.tempColorMode == TempColorModeType::ColorModeNormal;
     }
@@ -80,36 +95,51 @@ bool TemporaryColorModeManager::IsColorModeNormal(const int32_t userId)
 }
 bool TemporaryColorModeManager::SetColorModeTemporary(const int32_t userId)
 {
+    return SetColorModeTemporary(AccountContextHelper::CreateBaseContext(userId));
+}
+
+bool TemporaryColorModeManager::SetColorModeTemporary(const AccountContext& context)
+{
     {
         std::lock_guard guard(multiUserTempColorModeMapMutex_);
-        multiUserTempColorModeMap_[userId].tempColorMode = TempColorModeType::ColorModeTemp;
+        multiUserTempColorModeMap_[context].tempColorMode = TempColorModeType::ColorModeTemp;
         int32_t settingStartTime = 0;
         int32_t settingEndTime = 0;
-        auto res = DarkModeManager::GetInstance().GetSettingTime(userId, settingStartTime, settingEndTime);
+        auto res = DarkModeManager::GetInstance().GetSettingTime(context, settingStartTime, settingEndTime);
         if (res == false) {
-            LOGE("GetSettingTime faild userId: %{public}d", userId);
+            LOGE("GetSettingTime faild context: %{public}s", AccountContextHelper::ToString(context).c_str());
             return false;
         }
         GetTempColorModeTimeInfo(settingStartTime, settingEndTime,
-            multiUserTempColorModeMap_[userId].keepTemporaryStateStartTime,
-            multiUserTempColorModeMap_[userId].keepTemporaryStateEndTime);
+            multiUserTempColorModeMap_[context].keepTemporaryStateStartTime,
+            multiUserTempColorModeMap_[context].keepTemporaryStateEndTime);
     }
-    SaveTempColorModeInfo(userId);
+    SaveTempColorModeInfo(context);
     return true;
 }
 bool TemporaryColorModeManager::SetColorModeNormal(const int32_t userId)
 {
+    return SetColorModeNormal(AccountContextHelper::CreateBaseContext(userId));
+}
+
+bool TemporaryColorModeManager::SetColorModeNormal(const AccountContext& context)
+{
     {
         std::lock_guard guard(multiUserTempColorModeMapMutex_);
-        multiUserTempColorModeMap_[userId].tempColorMode = TempColorModeType::ColorModeNormal;
-        multiUserTempColorModeMap_[userId].keepTemporaryStateStartTime = 0;
-        multiUserTempColorModeMap_[userId].keepTemporaryStateEndTime = 0;
+        multiUserTempColorModeMap_[context].tempColorMode = TempColorModeType::ColorModeNormal;
+        multiUserTempColorModeMap_[context].keepTemporaryStateStartTime = 0;
+        multiUserTempColorModeMap_[context].keepTemporaryStateEndTime = 0;
     }
-    SaveTempColorModeInfo(userId);
+    SaveTempColorModeInfo(context);
     return true;
 }
 
 bool TemporaryColorModeManager::CheckTemporaryStateEffective(const int32_t userId)
+{
+    return CheckTemporaryStateEffective(AccountContextHelper::CreateBaseContext(userId));
+}
+
+bool TemporaryColorModeManager::CheckTemporaryStateEffective(const AccountContext& context)
 {
     auto checkTempStateNoTimeout = [](const int64_t startTime, const int64_t endTime) {
         std::time_t timestampNow = std::time(nullptr);
@@ -124,7 +154,7 @@ bool TemporaryColorModeManager::CheckTemporaryStateEffective(const int32_t userI
     };
 
     std::lock_guard guard(multiUserTempColorModeMapMutex_);
-    auto it = multiUserTempColorModeMap_.find(userId);
+    auto it = multiUserTempColorModeMap_.find(context);
     if (it != multiUserTempColorModeMap_.end()) {
         if (it->second.tempColorMode == TempColorModeType::ColorModeTemp &&
             checkTempStateNoTimeout(it->second.keepTemporaryStateStartTime, it->second.keepTemporaryStateEndTime)) {
@@ -134,19 +164,19 @@ bool TemporaryColorModeManager::CheckTemporaryStateEffective(const int32_t userI
     return false;
 }
 
-std::string TemporaryColorModeManager::TemporaryColorModeAssignUser(const int32_t userId)
+std::string TemporaryColorModeManager::TemporaryColorModeAssignUser(const AccountContext& context)
 {
-    return TEMPORARY_COLOR_MODE_PARAM_STRING + std::to_string(userId);
+    return AccountContextHelper::BuildUserParamKey(TEMPORARY_COLOR_MODE_PARAM_STRING, context);
 }
 
-std::string TemporaryColorModeManager::TemporaryStateStartTimeAssignUser(const int32_t userId)
+std::string TemporaryColorModeManager::TemporaryStateStartTimeAssignUser(const AccountContext& context)
 {
-    return TEMPORARY_STATE_START_TIME_PARAM_STRING + std::to_string(userId);
+    return AccountContextHelper::BuildUserParamKey(TEMPORARY_STATE_START_TIME_PARAM_STRING, context);
 }
 
-std::string TemporaryColorModeManager::TemporaryStateEndTimeAssignUser(const int32_t userId)
+std::string TemporaryColorModeManager::TemporaryStateEndTimeAssignUser(const AccountContext& context)
 {
-    return TEMPORARY_STATE_END_TIME_PARAM_STRING + std::to_string(userId);
+    return AccountContextHelper::BuildUserParamKey(TEMPORARY_STATE_END_TIME_PARAM_STRING, context);
 }
 
 void TemporaryColorModeManager::GetTempColorModeTimeInfo(const int32_t settingStartTime,
@@ -251,21 +281,22 @@ bool TemporaryColorModeManager::IsWithInPreInterval(const int32_t startTime, con
     return false;
 }
 
-void TemporaryColorModeManager::SaveTempColorModeInfo(const int32_t userId)
+void TemporaryColorModeManager::SaveTempColorModeInfo(const AccountContext& context)
 {
     TempColorModeInfo info;
     {
         std::lock_guard guard(multiUserTempColorModeMapMutex_);
-        info = multiUserTempColorModeMap_[userId];
+        info = multiUserTempColorModeMap_[context];
     }
-    SetParameterWrap(TemporaryColorModeAssignUser(userId), info.tempColorMode == TempColorModeType::ColorModeNormal
+    SetParameterWrap(TemporaryColorModeAssignUser(context), info.tempColorMode == TempColorModeType::ColorModeNormal
                                                                ? TEMPORARY_COLOR_MODE_NORMAL_STRING
                                                                : TEMPORARY_COLOR_MODE_TEMPORARY_STRING);
-    LOGI("SaveTempColorModeInfo userId:%{public}d,colorMode:%{public}d", userId,
-        static_cast<int32_t>(info.tempColorMode));
+    LOGI("SaveTempColorModeInfo context:%{public}s,colorMode:%{public}d",
+        AccountContextHelper::ToString(context).c_str(), static_cast<int32_t>(info.tempColorMode));
     if (info.tempColorMode == TempColorModeType::ColorModeTemp) {
-        SetParameterWrap(TemporaryStateStartTimeAssignUser(userId), std::to_string(info.keepTemporaryStateStartTime));
-        SetParameterWrap(TemporaryStateEndTimeAssignUser(userId), std::to_string(info.keepTemporaryStateEndTime));
+        SetParameterWrap(TemporaryStateStartTimeAssignUser(context),
+            std::to_string(info.keepTemporaryStateStartTime));
+        SetParameterWrap(TemporaryStateEndTimeAssignUser(context), std::to_string(info.keepTemporaryStateEndTime));
         LOGI("SaveTempColorModeInfo keepStartTime:%{public}" PRId64 ",keepEndTime:%{public}" PRId64,
             info.keepTemporaryStateStartTime, info.keepTemporaryStateEndTime);
     }

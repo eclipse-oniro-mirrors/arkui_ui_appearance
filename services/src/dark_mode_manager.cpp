@@ -46,54 +46,82 @@ ErrCode DarkModeManager::Initialize(const std::function<void(bool, int32_t)>& up
 ErrCode DarkModeManager::LoadUserSettingData(
     const int32_t userId, const bool needUpdateCallback, bool &isDarkMode, const bool bootLoadFlag)
 {
+    return LoadUserSettingData(AccountContextHelper::CreateBaseContext(userId), needUpdateCallback, isDarkMode,
+        bootLoadFlag);
+}
+
+ErrCode DarkModeManager::LoadUserSettingData(
+    const AccountContext& context, const bool needUpdateCallback, bool &isDarkMode, const bool bootLoadFlag)
+{
     SettingDataManager& manager = SettingDataManager::GetInstance();
+    auto getInt32Value = [&manager, &context](const std::string& baseKey, int32_t& value) {
+        const std::string contextKey = AccountContextHelper::BuildSettingKey(baseKey, context);
+        ErrCode code = manager.GetInt32ValueStrictly(contextKey, value, context.userId);
+        if (code == ERR_OK || !AccountContextHelper::IsSubProfileContext(context)) {
+            return code;
+        }
+        code = manager.GetInt32ValueStrictly(baseKey, value, context.userId);
+        if (code == ERR_OK) {
+            manager.SetStringValue(contextKey, std::to_string(value), context.userId, false);
+        }
+        return code;
+    };
     int32_t darkMode = DARK_MODE_INVALID;
-    manager.GetInt32ValueStrictly(SETTING_DARK_MODE_MODE, darkMode, userId);
+    getInt32Value(SETTING_DARK_MODE_MODE, darkMode);
     if (darkMode < DARK_MODE_INVALID || darkMode >= DARK_MODE_SIZE) {
-        LOGE("dark mode out of range: %{public}d, userId: %{public}d", darkMode, userId);
+        LOGE("dark mode out of range: %{public}d, context: %{public}s", darkMode,
+            AccountContextHelper::ToString(context).c_str());
         darkMode = DARK_MODE_INVALID;
     }
     int32_t startTime = -1;
-    manager.GetInt32ValueStrictly(SETTING_DARK_MODE_START_TIME, startTime, userId);
+    getInt32Value(SETTING_DARK_MODE_START_TIME, startTime);
     int32_t endTime = -1;
-    manager.GetInt32ValueStrictly(SETTING_DARK_MODE_END_TIME, endTime, userId);
+    getInt32Value(SETTING_DARK_MODE_END_TIME, endTime);
     int32_t sunsetTime = SUNSET_TIME_DEFAULT;
-    manager.GetInt32ValueStrictly(SETTING_DARK_MODE_SUN_SET, sunsetTime, userId);
+    getInt32Value(SETTING_DARK_MODE_SUN_SET, sunsetTime);
     int32_t sunriseTime = SUNRISE_TIME_DEFAULT;
-    manager.GetInt32ValueStrictly(SETTING_DARK_MODE_SUN_RISE, sunriseTime, userId);
+    getInt32Value(SETTING_DARK_MODE_SUN_RISE, sunriseTime);
 
     std::lock_guard lock(darkModeStatesMutex_);
-    DarkModeState& state = darkModeStates_[userId];
+    DarkModeState& state = darkModeStates_[context];
     state.settingMode = static_cast<DarkModeMode>(darkMode);
     state.settingStartTime = startTime;
     state.settingEndTime = endTime;
     state.settingSunsetTime = sunsetTime;
     state.settingSunriseTime = sunriseTime;
-    LOGI("load user setting data, userId: %{public}d, mode: %{public}d, start: %{public}d, end : %{public}d",
-        userId, darkMode, startTime, endTime);
-    temporaryColorModeMgr_.InitData(userId);
-    if (temporaryColorModeMgr_.IsColorModeTemporary(userId) &&
-        temporaryColorModeMgr_.CheckTemporaryStateEffective(userId) == false) {
-        temporaryColorModeMgr_.SetColorModeNormal(userId);
+    LOGI("load user setting data, context: %{public}s, mode: %{public}d, start: %{public}d, end : %{public}d",
+        AccountContextHelper::ToString(context).c_str(), darkMode, startTime, endTime);
+    temporaryColorModeMgr_.InitData(context);
+    if (temporaryColorModeMgr_.IsColorModeTemporary(context) &&
+        temporaryColorModeMgr_.CheckTemporaryStateEffective(context) == false) {
+        temporaryColorModeMgr_.SetColorModeNormal(context);
     }
     screenSwitchOperatorMgr_.ResetScreenOffOperateInfo();
-    return OnStateChangeLocked(userId, needUpdateCallback, isDarkMode, false, bootLoadFlag);
+    return OnStateChangeLocked(context, needUpdateCallback, isDarkMode, false, bootLoadFlag);
 }
 
 void DarkModeManager::NotifyDarkModeUpdate(const int32_t userId, const bool isDarkMode)
 {
+    NotifyDarkModeUpdate(AccountContextHelper::CreateBaseContext(userId), isDarkMode);
+}
+
+void DarkModeManager::NotifyDarkModeUpdate(const AccountContext& context, const bool isDarkMode)
+{
     SettingDataManager& manager = SettingDataManager::GetInstance();
     std::lock_guard lock(darkModeStatesMutex_);
-    const DarkModeState& state = darkModeStates_[userId];
+    const DarkModeState& state = darkModeStates_[context];
+    const std::string key = AccountContextHelper::BuildSettingKey(SETTING_DARK_MODE_MODE, context);
     if (isDarkMode) {
         if (state.settingMode == DARK_MODE_ALWAYS_LIGHT || state.settingMode == DARK_MODE_INVALID) {
-            LOGI("notify change to always dark, userId: %{public}d", userId);
-            manager.SetStringValue(SETTING_DARK_MODE_MODE, std::to_string(DARK_MODE_ALWAYS_DARK), userId);
+            LOGI("notify change to always dark, context: %{public}s",
+                AccountContextHelper::ToString(context).c_str());
+            manager.SetStringValue(key, std::to_string(DARK_MODE_ALWAYS_DARK), context.userId);
         } // else no need to change
     } else {
         if (state.settingMode == DARK_MODE_ALWAYS_DARK || state.settingMode == DARK_MODE_INVALID) {
-            LOGI("notify change to always light, userId: %{public}d", userId);
-            manager.SetStringValue(SETTING_DARK_MODE_MODE, std::to_string(DARK_MODE_ALWAYS_LIGHT), userId);
+            LOGI("notify change to always light, context: %{public}s",
+                AccountContextHelper::ToString(context).c_str());
+            manager.SetStringValue(key, std::to_string(DARK_MODE_ALWAYS_LIGHT), context.userId);
         } // else no need to change
     }
 }
@@ -112,12 +140,17 @@ void DarkModeManager::ScreenOffCallback()
         screenSwitchOperatorMgr_.GetScreenOffOperateInfo(switchToDark, userId);
         OnChangeDarkMode(
             switchToDark == true ? DarkModeMode::DARK_MODE_ALWAYS_DARK : DarkModeMode::DARK_MODE_ALWAYS_LIGHT,
-            userId);
+            AccountContextHelper::CreateBaseContext(userId));
         screenSwitchOperatorMgr_.ResetScreenOffOperateInfo();
     }
 }
 
 ErrCode DarkModeManager::OnSwitchUser(const int32_t userId)
+{
+    return OnSwitchContext(AccountContextHelper::CreateBaseContext(userId));
+}
+
+ErrCode DarkModeManager::OnSwitchContext(const AccountContext& context)
 {
     SettingDataManager& manager = SettingDataManager::GetInstance();
     if (!manager.IsInitialized()) {
@@ -128,110 +161,131 @@ ErrCode DarkModeManager::OnSwitchUser(const int32_t userId)
         }
     }
 
-    if (userId <= INVALID_USER_ID) {
-        LOGE("invalid userId: %{public}d", userId);
+    if (context.userId <= INVALID_USER_ID) {
+        LOGE("invalid context: %{public}s", AccountContextHelper::ToString(context).c_str());
         return ERR_INVALID_OPERATION;
     }
 
     std::lock_guard lock(settingDataObserversMutex_);
-    if (settingDataObserversUserId_ != INVALID_USER_ID) {
-        LOGI("clear timers and unregister observers for userId: %{public}d", settingDataObserversUserId_);
-        alarmTimerManager_.ClearTimerByUserId(settingDataObserversUserId_);
-        UnregisterSettingDataObserversLocked(settingDataObserversUserId_);
+    if (settingDataObserversContext_.userId == INVALID_USER_ID && settingDataObserversUserId_ != INVALID_USER_ID) {
+        settingDataObserversContext_ = AccountContextHelper::CreateBaseContext(settingDataObserversUserId_);
+    }
+    if (settingDataObserversContext_.userId != INVALID_USER_ID) {
+        LOGI("clear timers and unregister observers for context: %{public}s",
+            AccountContextHelper::ToString(settingDataObserversContext_).c_str());
+        alarmTimerManager_.ClearTimerByUserId(AccountContextHelper::BuildTimerKey(settingDataObserversContext_));
+        UnregisterSettingDataObserversLocked(settingDataObserversContext_);
+        settingDataObserversContext_ = AccountContextHelper::CreateBaseContext(INVALID_USER_ID);
         settingDataObserversUserId_ = INVALID_USER_ID;
     }
 
-    ErrCode code = RegisterSettingDataObserversLocked(userId);
-    settingDataObserversUserId_ = userId;
+    ErrCode code = RegisterSettingDataObserversLocked(context);
+    settingDataObserversContext_ = context;
+    settingDataObserversUserId_ = context.userId;
     return code;
 }
 
 void DarkModeManager::DoSwitchTemporaryColorMode(const int32_t userId, bool isDarkMode)
 {
-    if (IsDarkModeCustomAuto(userId) || IsDarkModeSunsetSunrise(userId)) {
+    DoSwitchTemporaryColorMode(AccountContextHelper::CreateBaseContext(userId), isDarkMode);
+}
+
+void DarkModeManager::DoSwitchTemporaryColorMode(const AccountContext& context, bool isDarkMode)
+{
+    if (IsDarkModeCustomAuto(context) || IsDarkModeSunsetSunrise(context)) {
         screenSwitchOperatorMgr_.ResetScreenOffOperateInfo();
         int32_t settingStartTime = 0;
         int32_t settingEndTime = 0;
-        auto res = GetSettingTime(userId, settingStartTime, settingEndTime);
+        auto res = GetSettingTime(context, settingStartTime, settingEndTime);
         if (res == false) {
-            LOGE("GetSettingTime faild userId: %{public}d", userId);
+            LOGE("GetSettingTime faild context: %{public}s", AccountContextHelper::ToString(context).c_str());
             return;
         }
         if ((AlarmTimerManager::IsWithinTimeInterval(settingStartTime, settingEndTime) && isDarkMode == true) ||
             (!AlarmTimerManager::IsWithinTimeInterval(settingStartTime, settingEndTime) && isDarkMode == false)) {
-            temporaryColorModeMgr_.SetColorModeNormal(userId);
+            temporaryColorModeMgr_.SetColorModeNormal(context);
         } else {
-            temporaryColorModeMgr_.SetColorModeTemporary(userId);
+            temporaryColorModeMgr_.SetColorModeTemporary(context);
         }
     }
 }
 
 void DarkModeManager::UpdateDarkModeSchedule(
-    const DarkModeMode mode, const int32_t userId, const bool resetTempColorModeFlag, const bool bootLoadFlag)
+    const DarkModeMode mode, const AccountContext& context, const bool resetTempColorModeFlag, const bool bootLoadFlag)
 {
     screenSwitchOperatorMgr_.ResetScreenOffOperateInfo();
     if (resetTempColorModeFlag == true) {
-        OnChangeDarkMode(mode, userId);
+        OnChangeDarkMode(mode, context);
         return;
     }
 
     if (screenSwitchOperatorMgr_.IsScreenOff() || bootLoadFlag) {
-        if (temporaryColorModeMgr_.IsColorModeNormal(userId) ||
-            temporaryColorModeMgr_.CheckTemporaryStateEffective(userId) == false) {
-            OnChangeDarkMode(mode, userId);
+        if (temporaryColorModeMgr_.IsColorModeNormal(context) ||
+            temporaryColorModeMgr_.CheckTemporaryStateEffective(context) == false) {
+            OnChangeDarkMode(mode, context);
         }
         return;
     }
 
-    if (temporaryColorModeMgr_.IsColorModeNormal(userId) ||
-        temporaryColorModeMgr_.CheckTemporaryStateEffective(userId) == false) {
-        screenSwitchOperatorMgr_.SetScreenOffOperateInfo(mode == DARK_MODE_ALWAYS_DARK, userId);
-        LOGI("SetScreenOffOperateInfo userId:%{public}d operate:%{public}d", userId, static_cast<int32_t>(mode));
+    if (temporaryColorModeMgr_.IsColorModeNormal(context) ||
+        temporaryColorModeMgr_.CheckTemporaryStateEffective(context) == false) {
+        screenSwitchOperatorMgr_.SetScreenOffOperateInfo(mode == DARK_MODE_ALWAYS_DARK, context.userId);
+        LOGI("SetScreenOffOperateInfo context:%{public}s operate:%{public}d",
+            AccountContextHelper::ToString(context).c_str(), static_cast<int32_t>(mode));
     }
 }
 
 ErrCode DarkModeManager::RestartTimer()
 {
     std::lock_guard lock(darkModeStatesMutex_);
-    DarkModeMode mode = darkModeStates_[settingDataObserversUserId_].settingMode;
+    AccountContext currentContext = settingDataObserversContext_;
+    if (currentContext.userId == INVALID_USER_ID && settingDataObserversUserId_ != INVALID_USER_ID) {
+        currentContext = AccountContextHelper::CreateBaseContext(settingDataObserversUserId_);
+    }
+    DarkModeMode mode = darkModeStates_[currentContext].settingMode;
     int32_t startTime = -1;
     int32_t endTime = -1;
 
     if (mode == DARK_MODE_SUNRISE_SUNSET) {
-        startTime = darkModeStates_[settingDataObserversUserId_].settingSunsetTime;
-        endTime = darkModeStates_[settingDataObserversUserId_].settingSunriseTime;
+        startTime = darkModeStates_[currentContext].settingSunsetTime;
+        endTime = darkModeStates_[currentContext].settingSunriseTime;
     } else if (mode == DARK_MODE_CUSTOM_AUTO) {
-        startTime = darkModeStates_[settingDataObserversUserId_].settingStartTime;
-        endTime = darkModeStates_[settingDataObserversUserId_].settingEndTime;
+        startTime = darkModeStates_[currentContext].settingStartTime;
+        endTime = darkModeStates_[currentContext].settingEndTime;
     } else {
         LOGD("no need to restart timer.");
         return ERR_OK;
     }
 
     if (AlarmTimerManager::IsWithinTimeInterval(startTime, endTime)) {
-        UpdateDarkModeSchedule(DARK_MODE_ALWAYS_DARK, settingDataObserversUserId_, false, false);
+        UpdateDarkModeSchedule(DARK_MODE_ALWAYS_DARK, currentContext, false, false);
     } else {
-        UpdateDarkModeSchedule(DARK_MODE_ALWAYS_LIGHT, settingDataObserversUserId_, false, false);
+        UpdateDarkModeSchedule(DARK_MODE_ALWAYS_LIGHT, currentContext, false, false);
     }
     return alarmTimerManager_.RestartAllTimer();
 }
 
-bool DarkModeManager::IsDarkModeCustomAuto(const int32_t userId)
+bool DarkModeManager::IsDarkModeCustomAuto(const AccountContext& context)
 {
     std::lock_guard lock(darkModeStatesMutex_);
-    return darkModeStates_[userId].settingMode == DARK_MODE_CUSTOM_AUTO;
+    return darkModeStates_[context].settingMode == DARK_MODE_CUSTOM_AUTO;
 }
 
-bool DarkModeManager::IsDarkModeSunsetSunrise(const int32_t userId)
+bool DarkModeManager::IsDarkModeSunsetSunrise(const AccountContext& context)
 {
     std::lock_guard lock(darkModeStatesMutex_);
-    return darkModeStates_[userId].settingMode == DARK_MODE_SUNRISE_SUNSET;
+    return darkModeStates_[context].settingMode == DARK_MODE_SUNRISE_SUNSET;
 }
 
 bool DarkModeManager::GetSettingTime(const int32_t userId, int32_t& settingStartTime, int32_t& settingEndTime)
 {
+    return GetSettingTime(AccountContextHelper::CreateBaseContext(userId), settingStartTime, settingEndTime);
+}
+
+bool DarkModeManager::GetSettingTime(const AccountContext& context, int32_t& settingStartTime, int32_t& settingEndTime)
+{
     std::lock_guard lock(darkModeStatesMutex_);
-    auto it = darkModeStates_.find(userId);
+    auto it = darkModeStates_.find(context);
     if (it != darkModeStates_.end()) {
         if (it->second.settingMode == DARK_MODE_CUSTOM_AUTO) {
             settingStartTime = it->second.settingStartTime;
@@ -247,22 +301,28 @@ bool DarkModeManager::GetSettingTime(const int32_t userId, int32_t& settingStart
 
 bool DarkModeManager::IsColorModeNormal(const int32_t userId)
 {
-    return temporaryColorModeMgr_.IsColorModeNormal(userId);
+    return IsColorModeNormal(AccountContextHelper::CreateBaseContext(userId));
+}
+
+bool DarkModeManager::IsColorModeNormal(const AccountContext& context)
+{
+    return temporaryColorModeMgr_.IsColorModeNormal(context);
 }
 
 void DarkModeManager::Dump()
 {
     {
         std::lock_guard observersGuard(settingDataObserversMutex_);
-        LOGD("settingData observers size: %{public}zu, userId: %{public}d",
-            settingDataObservers_.size(), settingDataObserversUserId_);
+        LOGD("settingData observers size: %{public}zu, context: %{public}s",
+            settingDataObservers_.size(), AccountContextHelper::ToString(settingDataObserversContext_).c_str());
     }
 
     std::lock_guard stateGuard(darkModeStatesMutex_);
     LOGD("darkModeStates size: %{public}zu", darkModeStates_.size());
     for (const auto& state : darkModeStates_) {
-        LOGD("userId: %{public}d, mode: %{public}d, start: %{public}d, end: %{public}d",
-            state.first, state.second.settingMode, state.second.settingStartTime, state.second.settingEndTime);
+        LOGD("context: %{public}s, mode: %{public}d, start: %{public}d, end: %{public}d",
+            AccountContextHelper::ToString(state.first).c_str(), state.second.settingMode,
+            state.second.settingStartTime, state.second.settingEndTime);
     }
 
     alarmTimerManager_.Dump();
@@ -272,29 +332,38 @@ void DarkModeManager::LoadSettingDataObserversCallback()
 {
     std::lock_guard lock(settingDataObserversMutex_);
     settingDataObservers_.clear();
-    settingDataObservers_.emplace_back(SETTING_DARK_MODE_MODE, [&](const std::string& key, int32_t userId) {
-        SettingDataDarkModeModeUpdateFunc(key, userId);
+    settingDataObservers_.emplace_back(SETTING_DARK_MODE_MODE, [&](const std::string& key,
+        const AccountContext& context) {
+        SettingDataDarkModeModeUpdateFunc(key, context);
     });
-    settingDataObservers_.emplace_back(SETTING_DARK_MODE_START_TIME, [&](const std::string& key, int32_t userId) {
-        SettingDataDarkModeStartTimeUpdateFunc(key, userId);
+    settingDataObservers_.emplace_back(SETTING_DARK_MODE_START_TIME, [&](const std::string& key,
+        const AccountContext& context) {
+        SettingDataDarkModeStartTimeUpdateFunc(key, context);
     });
-    settingDataObservers_.emplace_back(SETTING_DARK_MODE_END_TIME, [&](const std::string& key, int32_t userId) {
-        SettingDataDarkModeEndTimeUpdateFunc(key, userId);
+    settingDataObservers_.emplace_back(SETTING_DARK_MODE_END_TIME, [&](const std::string& key,
+        const AccountContext& context) {
+        SettingDataDarkModeEndTimeUpdateFunc(key, context);
     });
-    settingDataObservers_.emplace_back(SETTING_DARK_MODE_SUN_SET, [&](const std::string& key, int32_t userId) {
-        SettingDataDarkModeSunsetTimeUpdateFunc(key, userId);
+    settingDataObservers_.emplace_back(SETTING_DARK_MODE_SUN_SET, [&](const std::string& key,
+        const AccountContext& context) {
+        SettingDataDarkModeSunsetTimeUpdateFunc(key, context);
     });
-    settingDataObservers_.emplace_back(SETTING_DARK_MODE_SUN_RISE, [&](const std::string& key, int32_t userId) {
-        SettingDataDarkModeSunriseTimeUpdateFunc(key, userId);
+    settingDataObservers_.emplace_back(SETTING_DARK_MODE_SUN_RISE, [&](const std::string& key,
+        const AccountContext& context) {
+        SettingDataDarkModeSunriseTimeUpdateFunc(key, context);
     });
 }
 
-ErrCode DarkModeManager::RegisterSettingDataObserversLocked(const int32_t userId) const
+ErrCode DarkModeManager::RegisterSettingDataObserversLocked(const AccountContext& context) const
 {
     SettingDataManager& manager = SettingDataManager::GetInstance();
     size_t count = 0;
     for (const auto& observer : settingDataObservers_) {
-        if (manager.RegisterObserver(observer.first, observer.second, userId) != ERR_OK) {
+        const std::string key = AccountContextHelper::BuildSettingKey(observer.first, context);
+        auto updateFunc = [observer, context](const std::string& updateKey, int32_t userId) {
+            observer.second(updateKey, context);
+        };
+        if (manager.RegisterObserver(key, updateFunc, context.userId) != ERR_OK) {
             count++;
         }
     }
@@ -306,116 +375,119 @@ ErrCode DarkModeManager::RegisterSettingDataObserversLocked(const int32_t userId
     return ERR_OK;
 }
 
-void DarkModeManager::UnregisterSettingDataObserversLocked(const int32_t userId) const
+void DarkModeManager::UnregisterSettingDataObserversLocked(const AccountContext& context) const
 {
     SettingDataManager& manager = SettingDataManager::GetInstance();
     for (const auto& observer : settingDataObservers_) {
-        manager.UnregisterObserver(observer.first, userId);
+        manager.UnregisterObserver(AccountContextHelper::BuildSettingKey(observer.first, context), context.userId);
     }
 }
 
-void DarkModeManager::SettingDataDarkModeModeUpdateFunc(const std::string& key, const int32_t userId)
+void DarkModeManager::SettingDataDarkModeModeUpdateFunc(const std::string& key, const AccountContext& context)
 {
     SettingDataManager& manager = SettingDataManager::GetInstance();
     int32_t value = DARK_MODE_INVALID;
-    ErrCode code = manager.GetInt32ValueStrictly(key, value, userId);
+    ErrCode code = manager.GetInt32ValueStrictly(key, value, context.userId);
     if (code != ERR_OK) {
-        LOGE("get dark mode value failed, key: %{public}s, userId: %{public}d, code: %{public}d, set to default",
-            key.c_str(), userId, code);
+        LOGE("get dark mode value failed, key: %{public}s, context: %{public}s, code: %{public}d, set to default",
+            key.c_str(), AccountContextHelper::ToString(context).c_str(), code);
         value = DARK_MODE_INVALID;
     }
     if (value < DARK_MODE_INVALID || value >= DARK_MODE_SIZE) {
-        LOGE("dark mode value is invalid, key: %{public}s, userId: %{public}d, value: %{public}d, set to default",
-            key.c_str(), userId, value);
+        LOGE("dark mode value is invalid, key: %{public}s, context: %{public}s, value: %{public}d, set to default",
+            key.c_str(), AccountContextHelper::ToString(context).c_str(), value);
         value = DARK_MODE_INVALID;
     }
 
     auto mode = static_cast<DarkModeMode>(value);
     std::lock_guard lock(darkModeStatesMutex_);
-    LOGI("dark mode change, key: %{public}s, userId: %{public}d, from %{public}d to %{public}d",
-        key.c_str(), userId, darkModeStates_[userId].settingMode, value);
-    darkModeStates_[userId].settingMode = mode;
+    LOGI("dark mode change, key: %{public}s, context: %{public}s, from %{public}d to %{public}d",
+        key.c_str(), AccountContextHelper::ToString(context).c_str(), darkModeStates_[context].settingMode, value);
+    darkModeStates_[context].settingMode = mode;
     bool isDarkMode = false;
-    OnStateChangeLocked(userId, true, isDarkMode, true, false);
+    OnStateChangeLocked(context, true, isDarkMode, true, false);
 }
 
-void DarkModeManager::SettingDataDarkModeStartTimeUpdateFunc(const std::string& key, const int32_t userId)
+void DarkModeManager::SettingDataDarkModeStartTimeUpdateFunc(const std::string& key, const AccountContext& context)
 {
     SettingDataManager& manager = SettingDataManager::GetInstance();
     int32_t value = -1;
-    manager.GetInt32ValueStrictly(key, value, userId);
+    manager.GetInt32ValueStrictly(key, value, context.userId);
     std::lock_guard lock(darkModeStatesMutex_);
-    LOGI("dark mode start time change, key: %{public}s, userId: %{public}d, from %{public}d to %{public}d",
-        key.c_str(), userId, darkModeStates_[userId].settingStartTime, value);
-    darkModeStates_[userId].settingStartTime = value;
+    LOGI("dark mode start time change, key: %{public}s, context: %{public}s, from %{public}d to %{public}d",
+        key.c_str(), AccountContextHelper::ToString(context).c_str(), darkModeStates_[context].settingStartTime,
+        value);
+    darkModeStates_[context].settingStartTime = value;
     bool isDarkMode = false;
-    OnStateChangeLocked(userId, true, isDarkMode, true, false);
+    OnStateChangeLocked(context, true, isDarkMode, true, false);
 }
 
-void DarkModeManager::SettingDataDarkModeEndTimeUpdateFunc(const std::string& key, const int32_t userId)
+void DarkModeManager::SettingDataDarkModeEndTimeUpdateFunc(const std::string& key, const AccountContext& context)
 {
     SettingDataManager& manager = SettingDataManager::GetInstance();
     int32_t value = -1;
-    manager.GetInt32ValueStrictly(key, value, userId);
+    manager.GetInt32ValueStrictly(key, value, context.userId);
     std::lock_guard lock(darkModeStatesMutex_);
-    LOGI("dark mode end time change, key: %{public}s, userId: %{public}d, from %{public}d to %{public}d",
-        key.c_str(), userId, darkModeStates_[userId].settingEndTime, value);
-    darkModeStates_[userId].settingEndTime = value;
+    LOGI("dark mode end time change, key: %{public}s, context: %{public}s, from %{public}d to %{public}d",
+        key.c_str(), AccountContextHelper::ToString(context).c_str(), darkModeStates_[context].settingEndTime, value);
+    darkModeStates_[context].settingEndTime = value;
     bool isDarkMode = false;
-    OnStateChangeLocked(userId, true, isDarkMode, true, false);
+    OnStateChangeLocked(context, true, isDarkMode, true, false);
 }
 
-void DarkModeManager::SettingDataDarkModeSunsetTimeUpdateFunc(const std::string& key, const int32_t userId)
+void DarkModeManager::SettingDataDarkModeSunsetTimeUpdateFunc(const std::string& key, const AccountContext& context)
 {
     SettingDataManager& manager = SettingDataManager::GetInstance();
     int32_t value = SUNSET_TIME_DEFAULT;
-    manager.GetInt32ValueStrictly(key, value, userId);
+    manager.GetInt32ValueStrictly(key, value, context.userId);
     std::lock_guard lock(darkModeStatesMutex_);
-    LOGI("dark mode sunset time change, key: %{public}s, userId: %{public}d, from %{public}d to %{public}d",
-        key.c_str(), userId, darkModeStates_[userId].settingSunsetTime, value);
-    if (value >= darkModeStates_[userId].settingSunriseTime) {
-        darkModeStates_[userId].settingSunsetTime = SUNSET_TIME_DEFAULT;
-        darkModeStates_[userId].settingSunriseTime = SUNRISE_TIME_DEFAULT;
+    LOGI("dark mode sunset time change, key: %{public}s, context: %{public}s, from %{public}d to %{public}d",
+        key.c_str(), AccountContextHelper::ToString(context).c_str(), darkModeStates_[context].settingSunsetTime,
+        value);
+    if (value >= darkModeStates_[context].settingSunriseTime) {
+        darkModeStates_[context].settingSunsetTime = SUNSET_TIME_DEFAULT;
+        darkModeStates_[context].settingSunriseTime = SUNRISE_TIME_DEFAULT;
     } else {
-        darkModeStates_[userId].settingSunsetTime = value;
+        darkModeStates_[context].settingSunsetTime = value;
     }
     bool isDarkMode = false;
-    OnStateChangeLocked(userId, true, isDarkMode, false, false);
+    OnStateChangeLocked(context, true, isDarkMode, false, false);
 }
 
-void DarkModeManager::SettingDataDarkModeSunriseTimeUpdateFunc(const std::string& key, const int32_t userId)
+void DarkModeManager::SettingDataDarkModeSunriseTimeUpdateFunc(const std::string& key, const AccountContext& context)
 {
     SettingDataManager& manager = SettingDataManager::GetInstance();
     int32_t value = SUNRISE_TIME_DEFAULT;
-    manager.GetInt32ValueStrictly(key, value, userId);
+    manager.GetInt32ValueStrictly(key, value, context.userId);
     std::lock_guard lock(darkModeStatesMutex_);
-    LOGI("dark mode sunrise time change, key: %{public}s, userId: %{public}d, from %{public}d to %{public}d",
-        key.c_str(), userId, darkModeStates_[userId].settingSunriseTime, value);
-    if (value <= darkModeStates_[userId].settingSunsetTime) {
-        darkModeStates_[userId].settingSunsetTime = SUNSET_TIME_DEFAULT;
-        darkModeStates_[userId].settingSunriseTime = SUNRISE_TIME_DEFAULT;
+    LOGI("dark mode sunrise time change, key: %{public}s, context: %{public}s, from %{public}d to %{public}d",
+        key.c_str(), AccountContextHelper::ToString(context).c_str(), darkModeStates_[context].settingSunriseTime,
+        value);
+    if (value <= darkModeStates_[context].settingSunsetTime) {
+        darkModeStates_[context].settingSunsetTime = SUNSET_TIME_DEFAULT;
+        darkModeStates_[context].settingSunriseTime = SUNRISE_TIME_DEFAULT;
     } else {
-        darkModeStates_[userId].settingSunriseTime = value;
+        darkModeStates_[context].settingSunriseTime = value;
     }
     bool isDarkMode = false;
-    OnStateChangeLocked(userId, true, isDarkMode, false, false);
+    OnStateChangeLocked(context, true, isDarkMode, false, false);
 }
 
-ErrCode DarkModeManager::OnStateChangeLocked(const int32_t userId, const bool needUpdateCallback, bool& isDarkMode,
-    const bool resetTempColorModeFlag, const bool bootLoadFlag)
+ErrCode DarkModeManager::OnStateChangeLocked(const AccountContext& context, const bool needUpdateCallback,
+    bool& isDarkMode, const bool resetTempColorModeFlag, const bool bootLoadFlag)
 {
     ErrCode code = ERR_OK;
-    DarkModeState& state = darkModeStates_[userId];
+    DarkModeState& state = darkModeStates_[context];
     switch (state.settingMode) {
         case DARK_MODE_ALWAYS_LIGHT:
         case DARK_MODE_ALWAYS_DARK:
             code = OnStateChangeToAllDayMode(
-                userId, state.settingMode, needUpdateCallback, isDarkMode, resetTempColorModeFlag, bootLoadFlag);
+                context, state.settingMode, needUpdateCallback, isDarkMode, resetTempColorModeFlag, bootLoadFlag);
             break;
         case DARK_MODE_CUSTOM_AUTO:
         case DARK_MODE_SUNRISE_SUNSET:
-            code = OnStateChangeToCustomAutoMode(userId, state, needUpdateCallback, isDarkMode, resetTempColorModeFlag,
-                bootLoadFlag);
+            code = OnStateChangeToCustomAutoMode(context, state, needUpdateCallback, isDarkMode,
+                resetTempColorModeFlag, bootLoadFlag);
             break;
         default:
             // do nothing
@@ -425,18 +497,18 @@ ErrCode DarkModeManager::OnStateChangeLocked(const int32_t userId, const bool ne
     return code;
 }
 
-ErrCode DarkModeManager::OnStateChangeToAllDayMode(const int32_t userId, const DarkModeMode darkMode,
+ErrCode DarkModeManager::OnStateChangeToAllDayMode(const AccountContext& context, const DarkModeMode darkMode,
     const bool needUpdateCallback, bool& isDarkMode, const bool resetTempColorModeFlag, const bool bootLoadFlag)
 {
-    alarmTimerManager_.ClearTimerByUserId(userId);
+    alarmTimerManager_.ClearTimerByUserId(AccountContextHelper::BuildTimerKey(context));
     isDarkMode = darkMode == DARK_MODE_ALWAYS_DARK;
     if (needUpdateCallback) {
-        UpdateDarkModeSchedule(darkMode, userId, resetTempColorModeFlag, bootLoadFlag);
+        UpdateDarkModeSchedule(darkMode, context, resetTempColorModeFlag, bootLoadFlag);
     }
     return ERR_OK;
 }
 
-ErrCode DarkModeManager::OnStateChangeToCustomAutoMode(const int32_t userId, const DarkModeState& state,
+ErrCode DarkModeManager::OnStateChangeToCustomAutoMode(const AccountContext& context, const DarkModeState& state,
     const bool needUpdateCallback, bool& isDarkMode, const bool resetTempColorModeFlag, const bool bootLoadFlag)
 {
     int32_t startTime = -1;
@@ -449,9 +521,9 @@ ErrCode DarkModeManager::OnStateChangeToCustomAutoMode(const int32_t userId, con
         endTime = state.settingEndTime;
     }
 
-    ErrCode code = CreateOrUpdateTimers(startTime, endTime, userId);
+    ErrCode code = CreateOrUpdateTimers(startTime, endTime, context);
     if (code != ERR_OK) {
-        alarmTimerManager_.ClearTimerByUserId(userId);
+        alarmTimerManager_.ClearTimerByUserId(AccountContextHelper::BuildTimerKey(context));
         return code;
     }
     DarkModeMode mode = DARK_MODE_INVALID;
@@ -464,44 +536,51 @@ ErrCode DarkModeManager::OnStateChangeToCustomAutoMode(const int32_t userId, con
     }
 
     if (needUpdateCallback) {
-        UpdateDarkModeSchedule(mode, userId, resetTempColorModeFlag, bootLoadFlag);
+        UpdateDarkModeSchedule(mode, context, resetTempColorModeFlag, bootLoadFlag);
     }
     return ERR_OK;
 }
 
-void DarkModeManager::OnChangeDarkMode(const DarkModeMode mode, const int32_t userId)
+void DarkModeManager::OnChangeDarkMode(const DarkModeMode mode, const AccountContext& context)
 {
     if (!updateCallback_) {
-        LOGE("no update callback, mode: %{public}d, userId: %{public}d", mode, userId);
+        LOGE("no update callback, mode: %{public}d, context: %{public}s", mode,
+            AccountContextHelper::ToString(context).c_str());
         return;
     }
-    updateCallback_(mode == DARK_MODE_ALWAYS_DARK, userId);
-    if (temporaryColorModeMgr_.IsColorModeTemporary(userId)) {
-        temporaryColorModeMgr_.SetColorModeNormal(userId);
+    updateCallback_(mode == DARK_MODE_ALWAYS_DARK, context.userId);
+    if (temporaryColorModeMgr_.IsColorModeTemporary(context)) {
+        temporaryColorModeMgr_.SetColorModeNormal(context);
     }
 }
 
-ErrCode DarkModeManager::CreateOrUpdateTimers(int32_t startTime, int32_t endTime, int32_t userId)
+ErrCode DarkModeManager::CreateOrUpdateTimers(int32_t startTime, int32_t endTime, const AccountContext& context)
 {
-    auto callbackSetColorMode = [startTime, endTime, userId]() {
-        LOGI("timer callback, startTime: %{public}d, endTime: %{public}d, userId: %{public}d",
-            startTime, endTime, userId);
+    auto callbackSetColorMode = [startTime, endTime, context]() {
+        LOGI("timer callback, startTime: %{public}d, endTime: %{public}d, context: %{public}s",
+            startTime, endTime, AccountContextHelper::ToString(context).c_str());
         DarkModeMode colorMode = DarkModeMode::DARK_MODE_ALWAYS_LIGHT;
-        ErrCode code = GetInstance().CheckTimerCallbackParams(startTime, endTime, userId, colorMode);
+        ErrCode code = GetInstance().CheckTimerCallbackParams(startTime, endTime, context, colorMode);
         if (code != ERR_OK) {
             LOGE("timer callback, params check failed: %{public}d", code);
             return;
         }
-        GetInstance().UpdateDarkModeSchedule(colorMode, userId, false, false);
+        GetInstance().UpdateDarkModeSchedule(colorMode, context, false, false);
     };
-    return alarmTimerManager_.SetScheduleTime(startTime, endTime, userId, callbackSetColorMode, callbackSetColorMode);
+    return alarmTimerManager_.SetScheduleTime(startTime, endTime, AccountContextHelper::BuildTimerKey(context),
+        callbackSetColorMode, callbackSetColorMode);
+}
+
+ErrCode DarkModeManager::CreateOrUpdateTimers(int32_t startTime, int32_t endTime, int32_t userId)
+{
+    return CreateOrUpdateTimers(startTime, endTime, AccountContextHelper::CreateBaseContext(userId));
 }
 
 ErrCode DarkModeManager::CheckTimerCallbackParams(
-    const int32_t startTime, const int32_t endTime, const int32_t userId, DarkModeMode &darkMode)
+    const int32_t startTime, const int32_t endTime, const AccountContext& context, DarkModeMode &darkMode)
 {
     std::lock_guard lock(darkModeStatesMutex_);
-    DarkModeState& state = darkModeStates_[userId];
+    DarkModeState& state = darkModeStates_[context];
     if (state.settingMode == DARK_MODE_CUSTOM_AUTO) {
         if (state.settingStartTime != startTime) {
             LOGE("timer callback, param wrong, startTime: %{public}d, setting: %{public}d",
