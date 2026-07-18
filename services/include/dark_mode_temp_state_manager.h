@@ -18,25 +18,34 @@
 
 #include "map"
 #include "mutex"
+#include "string"
+
+#include "account_context.h"
 
 namespace OHOS::ArkUi::UiAppearance {
 class TemporaryColorModeManager {
 public:
     void InitData(const int32_t userId);
+    void InitData(const AccountContext& context);
     bool IsColorModeTemporary(const int32_t userId);
+    bool IsColorModeTemporary(const AccountContext& context);
     bool IsColorModeNormal(const int32_t userId);
+    bool IsColorModeNormal(const AccountContext& context);
     bool SetColorModeTemporary(const int32_t userId);
+    bool SetColorModeTemporary(const AccountContext& context);
     bool SetColorModeNormal(const int32_t userId);
+    bool SetColorModeNormal(const AccountContext& context);
     bool CheckTemporaryStateEffective(const int32_t userId);
+    bool CheckTemporaryStateEffective(const AccountContext& context);
 
 private:
-    std::string TemporaryColorModeAssignUser(const int32_t userId);
-    std::string TemporaryStateStartTimeAssignUser(const int32_t userId);
-    std::string TemporaryStateEndTimeAssignUser(const int32_t userId);
+    std::string TemporaryColorModeAssignUser(const AccountContext& context);
+    std::string TemporaryStateStartTimeAssignUser(const AccountContext& context);
+    std::string TemporaryStateEndTimeAssignUser(const AccountContext& context);
     static bool IsWithInPreInterval(const int32_t startTime, const int32_t endTime);
     static void GetTempColorModeTimeInfo(const int32_t settingStartTime, const int32_t settingEndTime,
         int64_t& tempStateStartTime, int64_t& tempStateEndTime);
-    void SaveTempColorModeInfo(const int32_t userId);
+    void SaveTempColorModeInfo(const AccountContext& context);
     enum class TempColorModeType {
         ColorModeNormal = 0,
         ColorModeTemp,
@@ -47,7 +56,7 @@ private:
         int64_t keepTemporaryStateEndTime = 0;
     };
     std::mutex multiUserTempColorModeMapMutex_;
-    std::map<int32_t, TempColorModeInfo> multiUserTempColorModeMap_;
+    std::map<AccountContext, TempColorModeInfo> multiUserTempColorModeMap_;
 };
 } // namespace OHOS::ArkUi::UiAppearance
 

@@ -24,6 +24,7 @@ ohos_unittest("ui_appearance_test") {
   ]
 
   sources = [
+    "${ui_appearance_services_path}/src/account_context.cpp",
     "${ui_appearance_services_path}/src/background_app_color_switch_settings.cpp",
     "${ui_appearance_services_path}/src/dark_mode_manager.cpp",
     "${ui_appearance_services_path}/src/dark_mode_temp_state_manager.cpp",

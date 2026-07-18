@@ -18,7 +18,10 @@
 
 #include <functional>
 #include <list>
+#include <map>
+#include <mutex>
 
+#include "account_context.h"
 #include "errors.h"
 #include "nocopyable.h"
 #include "alarm_timer_manager.h"
@@ -37,10 +40,14 @@ public:
     ErrCode Initialize(const std::function<void(bool, int32_t)>& updateCallback);
 
     ErrCode LoadUserSettingData(int32_t userId, bool needUpdateCallback, bool &isDarkMode, const bool bootLoadFlag);
+    ErrCode LoadUserSettingData(const AccountContext& context, bool needUpdateCallback, bool &isDarkMode,
+        const bool bootLoadFlag);
 
     void NotifyDarkModeUpdate(int32_t userId, bool isDarkMode);
+    void NotifyDarkModeUpdate(const AccountContext& context, bool isDarkMode);
 
     ErrCode OnSwitchUser(int32_t userId);
+    ErrCode OnSwitchContext(const AccountContext& context);
 
     void ScreenOnCallback();
 
@@ -51,10 +58,13 @@ public:
     void Dump();
 
     bool GetSettingTime(const int32_t userId, int32_t& settingStartTime, int32_t& settingEndTime);
+    bool GetSettingTime(const AccountContext& context, int32_t& settingStartTime, int32_t& settingEndTime);
 
     bool IsColorModeNormal(const int32_t userId);
+    bool IsColorModeNormal(const AccountContext& context);
 
     void DoSwitchTemporaryColorMode(const int32_t userId, bool isDarkMode);
+    void DoSwitchTemporaryColorMode(const AccountContext& context, bool isDarkMode);
 
     static ErrCode GetCurrentTimeOfSeconds(int32_t &seconds);
 
@@ -80,49 +90,54 @@ private:
 
     void LoadSettingDataObserversCallback();
 
-    ErrCode RegisterSettingDataObserversLocked(int32_t userId) const;
+    ErrCode RegisterSettingDataObserversLocked(const AccountContext& context) const;
 
-    void UnregisterSettingDataObserversLocked(int32_t userId) const;
+    void UnregisterSettingDataObserversLocked(const AccountContext& context) const;
 
-    void SettingDataDarkModeModeUpdateFunc(const std::string& key, int32_t userId);
+    void SettingDataDarkModeModeUpdateFunc(const std::string& key, const AccountContext& context);
 
-    void SettingDataDarkModeStartTimeUpdateFunc(const std::string& key, int32_t userId);
+    void SettingDataDarkModeStartTimeUpdateFunc(const std::string& key, const AccountContext& context);
 
-    void SettingDataDarkModeEndTimeUpdateFunc(const std::string& key, int32_t userId);
+    void SettingDataDarkModeEndTimeUpdateFunc(const std::string& key, const AccountContext& context);
 
-    void SettingDataDarkModeSunsetTimeUpdateFunc(const std::string& key, int32_t userId);
+    void SettingDataDarkModeSunsetTimeUpdateFunc(const std::string& key, const AccountContext& context);
 
-    void SettingDataDarkModeSunriseTimeUpdateFunc(const std::string& key, int32_t userId);
+    void SettingDataDarkModeSunriseTimeUpdateFunc(const std::string& key, const AccountContext& context);
 
-    ErrCode OnStateChangeLocked(int32_t userId, bool needUpdateCallback, bool& isDarkMode,
+    ErrCode OnStateChangeLocked(const AccountContext& context, bool needUpdateCallback, bool& isDarkMode,
         const bool resetTempColorModeFlag, const bool bootLoadFlag);
 
-    ErrCode OnStateChangeToAllDayMode(int32_t userId, DarkModeMode darkMode, bool needUpdateCallback, bool& isDarkMode,
-        const bool resetTempColorModeFlag, const bool bootLoadFlag);
-
-    ErrCode OnStateChangeToCustomAutoMode(int32_t userId, const DarkModeState& state, bool needUpdateCallback,
+    ErrCode OnStateChangeToAllDayMode(const AccountContext& context, DarkModeMode darkMode, bool needUpdateCallback,
         bool& isDarkMode, const bool resetTempColorModeFlag, const bool bootLoadFlag);
 
-    void OnChangeDarkMode(DarkModeMode mode, int32_t userId);
+    ErrCode OnStateChangeToCustomAutoMode(const AccountContext& context, const DarkModeState& state,
+        bool needUpdateCallback, bool& isDarkMode, const bool resetTempColorModeFlag, const bool bootLoadFlag);
 
+    void OnChangeDarkMode(DarkModeMode mode, const AccountContext& context);
+
+    ErrCode CreateOrUpdateTimers(int32_t startTime, int32_t endTime, const AccountContext& context);
     ErrCode CreateOrUpdateTimers(int32_t startTime, int32_t endTime, int32_t userId);
 
-    ErrCode CheckTimerCallbackParams(int32_t startTime, int32_t endTime, int32_t userId, DarkModeMode &darkMode);
+    ErrCode CheckTimerCallbackParams(int32_t startTime, int32_t endTime, const AccountContext& context,
+        DarkModeMode &darkMode);
 
-    void UpdateDarkModeSchedule(const DarkModeMode isDarkMode, const int32_t userId, const bool resetTempColorModeFlag,
-        const bool bootLoadFlag);
+    void UpdateDarkModeSchedule(const DarkModeMode isDarkMode, const AccountContext& context,
+        const bool resetTempColorModeFlag, const bool bootLoadFlag);
 
-    bool IsDarkModeCustomAuto(const int32_t userId);
+    bool IsDarkModeCustomAuto(const AccountContext& context);
 
-    bool IsDarkModeSunsetSunrise(const int32_t userId);
+    bool IsDarkModeSunsetSunrise(const AccountContext& context);
 
     std::mutex settingDataObserversMutex_;
-    std::list<std::pair<std::string, std::function<void(const std::string&, int32_t)>>> settingDataObservers_;
+    std::list<std::pair<std::string, std::function<void(const std::string&, const AccountContext&)>>>
+        settingDataObservers_;
+    AccountContext settingDataObserversContext_ = AccountContextHelper::CreateBaseContext(-1);
+    // Kept for legacy userId-only paths and tests; new logic should use settingDataObserversContext_.
     int32_t settingDataObserversUserId_ = -1;
 
     AlarmTimerManager alarmTimerManager_;
     std::mutex darkModeStatesMutex_;
-    std::map<int32_t, DarkModeState> darkModeStates_;
+    std::map<AccountContext, DarkModeState> darkModeStates_;
 
     std::function<void(bool, int32_t)> updateCallback_;
 

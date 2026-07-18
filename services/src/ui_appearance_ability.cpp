@@ -17,6 +17,7 @@
 
 #include <cstdlib>
 #include <string>
+#include <utility>
 
 #include "accesstoken_kit.h"
 #include "common_event_manager.h"
@@ -57,6 +58,12 @@ const static int32_t USER100 = 100;
 const static int32_t USER0 = 0;
 const static std::string FIRST_UPGRADE = "1";
 const static std::string NOT_FIRST_UPGRADE = "0";
+
+#ifdef ENABLE_MULTIPLE_OS_ACCOUNT_SUBSPACE
+// Want parameter keys carried by COMMON_EVENT_OS_ACCOUNT_SUB_PROFILE_SWITCHED, published by account_os_account.
+constexpr const char* SUB_PROFILE_USER_ID_KEY = "userId";
+constexpr const char* SUB_PROFILE_TO_PROFILE_ID_KEY = "toSubProfileId";
+#endif
 } // namespace
 
 namespace OHOS {
@@ -101,8 +108,10 @@ UiAppearanceAbility::UiAppearanceParam::UiAppearanceParam()
 {}
 
 UiAppearanceEventSubscriber::UiAppearanceEventSubscriber(const EventFwk::CommonEventSubscribeInfo& subscriberInfo,
-    const std::function<void(const int32_t)>& userSwitchCallback)
-    : EventFwk::CommonEventSubscriber(subscriberInfo), userSwitchCallback_(userSwitchCallback)
+    const std::function<void(const int32_t)>& userSwitchCallback,
+    const std::function<void(const int32_t, const int32_t)>& subProfileSwitchCallback)
+    : EventFwk::CommonEventSubscriber(subscriberInfo), userSwitchCallback_(userSwitchCallback),
+      subProfileSwitchCallback_(subProfileSwitchCallback)
 {}
 
 void UiAppearanceEventSubscriber::OnReceiveEvent(const EventFwk::CommonEventData& data)
@@ -125,6 +134,14 @@ void UiAppearanceEventSubscriber::OnReceiveEvent(const EventFwk::CommonEventData
         DarkModeManager::GetInstance().ScreenOffCallback();
     } else if (action == EventFwk::CommonEventSupport::COMMON_EVENT_SCREEN_ON) {
         DarkModeManager::GetInstance().ScreenOnCallback();
+    } else if (action == EventFwk::CommonEventSupport::COMMON_EVENT_OS_ACCOUNT_SUB_PROFILE_SWITCHED) {
+#ifdef ENABLE_MULTIPLE_OS_ACCOUNT_SUBSPACE
+        if (subProfileSwitchCallback_ != nullptr) {
+            int32_t userId = want.GetIntParam(SUB_PROFILE_USER_ID_KEY, INVALID_USER_ID);
+            int32_t subProfileId = want.GetIntParam(SUB_PROFILE_TO_PROFILE_ID_KEY, INVALID_SUB_PROFILE_ID);
+            subProfileSwitchCallback_(userId, subProfileId);
+        }
+#endif
     }
 }
 
@@ -145,10 +162,11 @@ void UiAppearanceEventSubscriber::BootCompetedCallback()
         } else {
             userId = ids[0];
         }
+        auto context = AccountContextHelper::GetForegroundContext(userId);
         DarkModeManager &manager = DarkModeManager::GetInstance();
-        manager.OnSwitchUser(userId);
+        manager.OnSwitchContext(context);
         bool isDarkMode = false;
-        manager.LoadUserSettingData(userId, true, isDarkMode, true);
+        manager.LoadUserSettingData(context, true, isDarkMode, true);
         SmartGestureManager &smartGestureManager = SmartGestureManager::GetInstance();
         smartGestureManager.RegisterSettingDataObserver();
         smartGestureManager.UpdateSmartGestureInitialValue();
@@ -238,36 +256,39 @@ void UiAppearanceAbility::DoCompatibleProcess()
         return GetParameterWrap(paramName, value);
     };
 
-    const std::list<int32_t> userIds = GetUserIds();
+    const auto contexts = AccountContextHelper::GetContextsByUserIds(GetUserIds());
     std::string darkMode = LIGHT;
     if (getOldParam(PERSIST_DARKMODE_KEY, darkMode)) {
-        for (auto id : userIds) {
-            if (isParamAllreadaySetted(DarkModeParamAssignUser(id))) {
+        for (const auto& context : contexts) {
+            if (isParamAllreadaySetted(DarkModeParamAssignUser(context))) {
                 continue;
             }
-            SetParameterWrap(DarkModeParamAssignUser(id), darkMode);
-            LOGI("userId:%{public}d set darkMode %{public}s", id, darkMode.c_str());
+            SetParameterWrap(DarkModeParamAssignUser(context), darkMode);
+            LOGI("context:%{public}s set darkMode %{public}s",
+                AccountContextHelper::ToString(context).c_str(), darkMode.c_str());
         }
     }
     std::string fontSize = BASE_SCALE;
     if (getOldParam(FONT_SCAL_FOR_USER0, fontSize)) {
-        for (auto id : userIds) {
-            if (isParamAllreadaySetted(FontScaleParamAssignUser(id))) {
+        for (const auto& context : contexts) {
+            if (isParamAllreadaySetted(FontScaleParamAssignUser(context))) {
                 continue;
             }
-            SetParameterWrap(FontScaleParamAssignUser(id), fontSize);
-            LOGI("userId:%{public}d set fontSize %{public}s", id, fontSize.c_str());
+            SetParameterWrap(FontScaleParamAssignUser(context), fontSize);
+            LOGI("context:%{public}s set fontSize %{public}s",
+                AccountContextHelper::ToString(context).c_str(), fontSize.c_str());
         }
     }
     std::string fontWeightSize = BASE_SCALE;
     if (getOldParam(FONT_Weight_SCAL_FOR_USER0, fontWeightSize)) {
         fontWeightSize = GetDefaultFontWeightScaleValue(fontWeightSize);
-        for (auto id : userIds) {
-            if (isParamAllreadaySetted(FontWeightScaleParamAssignUser(id))) {
+        for (const auto& context : contexts) {
+            if (isParamAllreadaySetted(FontWeightScaleParamAssignUser(context))) {
                 continue;
             }
-            SetParameterWrap(FontWeightScaleParamAssignUser(id), fontWeightSize);
-            LOGI("userId:%{public}d set fontWeightSize %{public}s", id, fontWeightSize.c_str());
+            SetParameterWrap(FontWeightScaleParamAssignUser(context), fontWeightSize);
+            LOGI("context:%{public}s set fontWeightSize %{public}s",
+                AccountContextHelper::ToString(context).c_str(), fontWeightSize.c_str());
         }
     }
     SetParameterWrap(FIRST_INITIALIZATION, "0");
@@ -278,16 +299,29 @@ void UiAppearanceAbility::DoInitProcess()
 {
     LOGI("DoInitProcess");
     BackGroundAppColorSwitchSettings::GetInstance().Initialize();
-    const std::list<int32_t> userIds = GetUserIds();
-    for (auto userId : userIds) {
-        std::string darkValue = LIGHT;
-        GetParameterWrap(DarkModeParamAssignUser(userId), darkValue);
+    auto loadContextParam = [](const AccountContext& context, const std::string& contextKey,
+                                const std::string& baseKey, const std::string& defaultValue) {
+        std::string value;
+        if (GetParameterWrap(contextKey, value, "") && !value.empty()) {
+            return value;
+        }
+        value = defaultValue;
+        // Backfill a new sub-profile key from the legacy userId key during the first load after upgrade.
+        if (AccountContextHelper::IsSubProfileContext(context) && GetParameterWrap(baseKey, value, defaultValue)) {
+            SetParameterWrap(contextKey, value);
+        }
+        return value;
+    };
+    const auto contexts = AccountContextHelper::GetContextsByUserIds(GetUserIds());
+    for (const auto& context : contexts) {
+        std::string darkValue = loadContextParam(context, DarkModeParamAssignUser(context),
+            DarkModeParamAssignUser(context.userId), LIGHT);
 
-        std::string fontSize = BASE_SCALE;
-        GetParameterWrap(FontScaleParamAssignUser(userId), fontSize);
+        std::string fontSize = loadContextParam(context, FontScaleParamAssignUser(context),
+            FontScaleParamAssignUser(context.userId), BASE_SCALE);
 
-        std::string fontWeight = GetDefaultFontWeightScaleValue(BASE_SCALE);
-        GetParameterWrap(FontWeightScaleParamAssignUser(userId), fontWeight);
+        std::string fontWeight = loadContextParam(context, FontWeightScaleParamAssignUser(context),
+            FontWeightScaleParamAssignUser(context.userId), GetDefaultFontWeightScaleValue(BASE_SCALE));
 
         UiAppearanceParam tmpParam;
         tmpParam.darkMode = darkValue == DARK ? DarkMode::ALWAYS_DARK : DarkMode::ALWAYS_LIGHT;
@@ -295,20 +329,21 @@ void UiAppearanceAbility::DoInitProcess()
         tmpParam.fontWeightScale = fontWeight;
         {
             std::lock_guard<std::mutex> guard(usersParamMutex_);
-            usersParam_[userId] = tmpParam;
+            usersParam_[context] = tmpParam;
         }
-        LOGI("init userId:%{public}d, darkMode:%{public}s, fontSize:%{public}s, fontWeight:%{public}s", userId,
-            darkValue.c_str(), fontSize.c_str(), fontWeight.c_str());
+        LOGI("init context:%{public}s, darkMode:%{public}s, fontSize:%{public}s, fontWeight:%{public}s",
+            AccountContextHelper::ToString(context).c_str(), darkValue.c_str(), fontSize.c_str(),
+            fontWeight.c_str());
     }
     isInitializationFinished_ = true;
 }
 
-void UiAppearanceAbility::UpdateCurrentUserConfiguration(const int32_t userId, const bool isForceUpdate)
+void UiAppearanceAbility::UpdateCurrentUserConfiguration(const AccountContext& context, const bool isForceUpdate)
 {
     UiAppearanceParam tmpParam;
     {
         std::lock_guard<std::mutex> guard(usersParamMutex_);
-        tmpParam = usersParam_[userId];
+        tmpParam = usersParam_[context];
     }
     AppExecFwk::Configuration config;
     config.AddItem(
@@ -318,17 +353,18 @@ void UiAppearanceAbility::UpdateCurrentUserConfiguration(const int32_t userId, c
 
     auto appManagerInstance = GetAppManagerInstance();
     if (!appManagerInstance) {
-        LOGE("GetAppManagerInstance error userId:%{public}d", userId);
+        LOGE("GetAppManagerInstance error context:%{public}s", AccountContextHelper::ToString(context).c_str());
         return;
     }
 
     {
         std::lock_guard<std::mutex> onceFlagGuard(userSwitchUpdateConfigurationOnceFlagMutex_);
         if (isForceUpdate ||
-            userSwitchUpdateConfigurationOnceFlag_.find(userId) == userSwitchUpdateConfigurationOnceFlag_.end()) {
-            appManagerInstance->UpdateConfiguration(config, userId);
-            LOGI("update userId:%{public}d configuration:%{public}s", userId, config.GetName().c_str());
-            userSwitchUpdateConfigurationOnceFlag_.insert(userId);
+            userSwitchUpdateConfigurationOnceFlag_.find(context) == userSwitchUpdateConfigurationOnceFlag_.end()) {
+            appManagerInstance->UpdateConfiguration(config, context.userId);
+            LOGI("update context:%{public}s configuration:%{public}s",
+                AccountContextHelper::ToString(context).c_str(), config.GetName().c_str());
+            userSwitchUpdateConfigurationOnceFlag_.insert(context);
         } else {
             appManagerInstance->UpdateConfiguration(config, USER0);
             LOGI("update userId:%{public}d configuration:%{public}s", USER0, config.GetName().c_str());
@@ -342,10 +378,15 @@ void UiAppearanceAbility::UpdateCurrentUserConfiguration(const int32_t userId, c
 
 void UiAppearanceAbility::UserSwitchFunc(const int32_t userId)
 {
+    AccountContextSwitchFunc(GetForegroundAccountContext(userId));
+}
+
+void UiAppearanceAbility::AccountContextSwitchFunc(const AccountContext& context)
+{
     DarkModeManager& manager = DarkModeManager::GetInstance();
-    manager.OnSwitchUser(userId);
+    manager.OnSwitchContext(context);
     bool isDarkMode = false;
-    int32_t code = manager.LoadUserSettingData(userId, false, isDarkMode, false);
+    int32_t code = manager.LoadUserSettingData(context, false, isDarkMode, false);
 
     if (isNeedDoCompatibleProcess_) {
         DoCompatibleProcess();
@@ -355,16 +396,22 @@ void UiAppearanceAbility::UserSwitchFunc(const int32_t userId)
     }
 
     bool isForceUpdate = false;
-    if (code == ERR_OK && manager.IsColorModeNormal(userId)) {
+    if (code == ERR_OK && manager.IsColorModeNormal(context)) {
         DarkMode darkMode = isDarkMode ? ALWAYS_DARK : ALWAYS_LIGHT;
         std::lock_guard<std::mutex> guard(usersParamMutex_);
-        if (usersParam_[userId].darkMode != darkMode) {
-            usersParam_[userId].darkMode = darkMode;
+        if (usersParam_[context].darkMode != darkMode) {
+            usersParam_[context].darkMode = darkMode;
             isForceUpdate = true;
         }
     }
+    // Sub-profiles under the same OS account share the AppMgr userId dimension but have distinct
+    // appearance. The per-context "once" dedup in UpdateCurrentUserConfiguration would otherwise
+    // fall back to USER0 on repeat/back switches, leaving the user's apps on the wrong appearance.
+    if (AccountContextHelper::IsSubProfileContext(context)) {
+        isForceUpdate = true;
+    }
 
-    UpdateCurrentUserConfiguration(userId, isForceUpdate);
+    UpdateCurrentUserConfiguration(context, isForceUpdate);
 }
 
 void UiAppearanceAbility::SubscribeCommonEvent()
@@ -376,15 +423,35 @@ void UiAppearanceAbility::SubscribeCommonEvent()
     matchingSkills.AddEvent(EventFwk::CommonEventSupport::COMMON_EVENT_TIMEZONE_CHANGED);
     matchingSkills.AddEvent(EventFwk::CommonEventSupport::COMMON_EVENT_SCREEN_ON);
     matchingSkills.AddEvent(EventFwk::CommonEventSupport::COMMON_EVENT_SCREEN_OFF);
+#ifdef ENABLE_MULTIPLE_OS_ACCOUNT_SUBSPACE
+    matchingSkills.AddEvent(EventFwk::CommonEventSupport::COMMON_EVENT_OS_ACCOUNT_SUB_PROFILE_SWITCHED);
+#endif
     EventFwk::CommonEventSubscribeInfo subscribeInfo(matchingSkills);
     subscribeInfo.SetThreadMode(EventFwk::CommonEventSubscribeInfo::COMMON);
 
-    uiAppearanceEventSubscriber_ = std::make_shared<UiAppearanceEventSubscriber>(
-        subscribeInfo, [this](const int32_t userId) { UserSwitchFunc(userId); });
+    uiAppearanceEventSubscriber_ = std::make_shared<UiAppearanceEventSubscriber>(subscribeInfo,
+        [this](const int32_t userId) { UserSwitchFunc(userId); },
+        [this](const int32_t userId, const int32_t subProfileId) { HandleSubProfileSwitched(userId, subProfileId); });
     bool subResult = EventFwk::CommonEventManager::SubscribeCommonEvent(uiAppearanceEventSubscriber_);
     if (!subResult) {
         LOGW("subscribe user switch event error");
     }
+}
+
+void UiAppearanceAbility::HandleSubProfileSwitched(int32_t userId, int32_t subProfileId)
+{
+    AccountContext context = AccountContextHelper::CreateContext(userId, subProfileId);
+    if (userId <= INVALID_USER_ID || subProfileId == INVALID_SUB_PROFILE_ID) {
+        int32_t foregroundUserId = USER100;
+        auto errCode = AccountSA::OsAccountManager::GetForegroundOsAccountLocalId(foregroundUserId);
+        if (errCode != ERR_OK) {
+            LOGW("GetForegroundOsAccountLocalId error: %{public}d.", errCode);
+            foregroundUserId = USER100;
+        }
+        context = GetForegroundAccountContext(foregroundUserId);
+    }
+    LOGI("handle subProfile switched, context:%{public}s", AccountContextHelper::ToString(context).c_str());
+    AccountContextSwitchFunc(context);
 }
 
 void UiAppearanceAbility::OnAddSystemAbility(int32_t systemAbilityId, const std::string& deviceId)
@@ -419,7 +486,7 @@ void UiAppearanceAbility::OnAddSystemAbility(int32_t systemAbilityId, const std:
             LOGW("GetForegroundOsAccountLocalId error: %{public}d.", errCode);
             userId = USER100;
         }
-        UpdateCurrentUserConfiguration(userId, false);
+        UpdateCurrentUserConfiguration(GetForegroundAccountContext(userId), false);
     }
 }
 
@@ -449,17 +516,40 @@ int32_t UiAppearanceAbility::GetCallingUserId()
     return userId;
 }
 
+AccountContext UiAppearanceAbility::GetCallingAccountContext()
+{
+    return GetForegroundAccountContext(GetCallingUserId());
+}
+
+AccountContext UiAppearanceAbility::GetForegroundAccountContext(int32_t fallbackUserId)
+{
+    return AccountContextHelper::GetForegroundContext(fallbackUserId);
+}
+
 std::string UiAppearanceAbility::DarkModeParamAssignUser(const int32_t userId)
 {
-    return PERSIST_DARKMODE_KEY_FOR_NONE + std::to_string(userId);
+    return DarkModeParamAssignUser(AccountContextHelper::CreateBaseContext(userId));
 }
 std::string UiAppearanceAbility::FontScaleParamAssignUser(const int32_t userId)
 {
-    return FONT_SCAL_FOR_NONE + std::to_string(userId);
+    return FontScaleParamAssignUser(AccountContextHelper::CreateBaseContext(userId));
 }
 std::string UiAppearanceAbility::FontWeightScaleParamAssignUser(const int32_t userId)
 {
-    return FONT_WEIGHT_SCAL_FOR_NONE + std::to_string(userId);
+    return FontWeightScaleParamAssignUser(AccountContextHelper::CreateBaseContext(userId));
+}
+
+std::string UiAppearanceAbility::DarkModeParamAssignUser(const AccountContext& context)
+{
+    return AccountContextHelper::BuildUserParamKey(PERSIST_DARKMODE_KEY_FOR_NONE, context);
+}
+std::string UiAppearanceAbility::FontScaleParamAssignUser(const AccountContext& context)
+{
+    return AccountContextHelper::BuildUserParamKey(FONT_SCAL_FOR_NONE, context);
+}
+std::string UiAppearanceAbility::FontWeightScaleParamAssignUser(const AccountContext& context)
+{
+    return AccountContextHelper::BuildUserParamKey(FONT_WEIGHT_SCAL_FOR_NONE, context);
 }
 
 bool UiAppearanceAbility::BackGroundAppColorSwitch(sptr<AppExecFwk::IAppMgr> appManagerInstance, const int32_t userId)
@@ -544,9 +634,10 @@ bool UiAppearanceAbility::UpdateConfiguration(const AppExecFwk::Configuration& c
     return true;
 }
 
-int32_t UiAppearanceAbility::OnSetDarkMode(const int32_t userId, DarkMode mode)
+int32_t UiAppearanceAbility::OnSetDarkMode(const AccountContext& context, DarkMode mode)
 {
-    LOGI("setDarkMode, userId:%{public}d, mode: %{public}d", userId, mode);
+    LOGI("setDarkMode, context:%{public}s, mode: %{public}d",
+        AccountContextHelper::ToString(context).c_str(), mode);
     bool ret = false;
     std::string paramValue;
     AppExecFwk::Configuration config;
@@ -572,14 +663,14 @@ int32_t UiAppearanceAbility::OnSetDarkMode(const int32_t userId, DarkMode mode)
     }
 
     std::vector<int32_t> effectiveUserIds = GetMultipleUsers();
-    if (!UpdateConfiguration(config, userId, effectiveUserIds)) {
+    if (!UpdateConfiguration(config, context.userId, effectiveUserIds)) {
         return SYS_ERR;
     }
 
     if (effectiveUserIds.size() > 1) {
         SetParameterWrap(PERSIST_DARKMODE_KEY, paramValue);
         for (const int32_t effectiveUserId : effectiveUserIds) {
-            if (ConfigurePersistence(effectiveUserId, mode, paramValue) != SUCCEEDED) {
+            if (ConfigurePersistence(GetForegroundAccountContext(effectiveUserId), mode, paramValue) != SUCCEEDED) {
                 return SYS_ERR;
             }
         }
@@ -587,7 +678,7 @@ int32_t UiAppearanceAbility::OnSetDarkMode(const int32_t userId, DarkMode mode)
     }
 
     SetParameterWrap(PERSIST_DARKMODE_KEY, paramValue);
-    return ConfigurePersistence(userId, mode, paramValue);
+    return ConfigurePersistence(context, mode, paramValue);
 }
 
 ErrCode UiAppearanceAbility::SetDarkMode(int32_t mode, int32_t& funcResult)
@@ -601,17 +692,17 @@ ErrCode UiAppearanceAbility::SetDarkMode(int32_t mode, int32_t& funcResult)
         return SUCCEEDED;
     }
 
-    auto userId = GetCallingUserId();
+    auto context = GetCallingAccountContext();
     DarkMode currentDarkMode = DarkMode::ALWAYS_LIGHT;
     {
         std::lock_guard<std::mutex> guard(usersParamMutex_);
-        auto it = usersParam_.find(userId);
+        auto it = usersParam_.find(context);
         if (it != usersParam_.end()) {
             currentDarkMode = it->second.darkMode;
         }
     }
     if (darkMode != currentDarkMode) {
-        funcResult = OnSetDarkMode(userId, darkMode);
+        funcResult = OnSetDarkMode(context, darkMode);
         return SUCCEEDED;
     } else {
         LOGW("current color mode is %{public}d, no need to change", darkMode);
@@ -620,12 +711,12 @@ ErrCode UiAppearanceAbility::SetDarkMode(int32_t mode, int32_t& funcResult)
     }
 }
 
-DarkMode UiAppearanceAbility::InitGetDarkMode(const int32_t userId)
+DarkMode UiAppearanceAbility::InitGetDarkMode(const AccountContext& context)
 {
     std::string valueGet = LIGHT;
 
     // LIGHT is the default.
-    auto res = GetParameterWrap(DarkModeParamAssignUser(userId), valueGet);
+    auto res = GetParameterWrap(DarkModeParamAssignUser(context), valueGet);
     if (!res) {
         return ALWAYS_LIGHT;
     }
@@ -643,7 +734,7 @@ ErrCode UiAppearanceAbility::GetDarkMode(int32_t& funcResult)
 {
     {
         std::lock_guard<std::mutex> guard(usersParamMutex_);
-        auto it = usersParam_.find(GetCallingUserId());
+        auto it = usersParam_.find(GetCallingAccountContext());
         if (it != usersParam_.end()) {
             funcResult = it->second.darkMode;
             return SUCCEEDED;
@@ -654,7 +745,7 @@ ErrCode UiAppearanceAbility::GetDarkMode(int32_t& funcResult)
     return SUCCEEDED;
 }
 
-int32_t UiAppearanceAbility::OnSetFontScale(const int32_t userId, const std::string& fontScale)
+int32_t UiAppearanceAbility::OnSetFontScale(const AccountContext& context, const std::string& fontScale)
 {
     bool ret = false;
     AppExecFwk::Configuration config;
@@ -663,18 +754,18 @@ int32_t UiAppearanceAbility::OnSetFontScale(const int32_t userId, const std::str
         LOGE("AddItem failed, fontScale = %{public}s", fontScale.c_str());
         return INVALID_ARG;
     }
-    if (!UpdateConfiguration(config, userId)) {
+    if (!UpdateConfiguration(config, context.userId)) {
         return SYS_ERR;
     }
 
     {
         std::lock_guard<std::mutex> guard(usersParamMutex_);
-        usersParam_[userId].fontScale = fontScale;
+        usersParam_[context].fontScale = fontScale;
     }
 
     SetParameterWrap(FONT_SCAL_FOR_USER0, fontScale);
     // persist to file: etc/para/ui_appearance.para
-    auto isSetPara = SetParameterWrap(FontScaleParamAssignUser(userId), fontScale);
+    auto isSetPara = SetParameterWrap(FontScaleParamAssignUser(context), fontScale);
     if (!isSetPara) {
         LOGE("set parameter failed");
         return SYS_ERR;
@@ -692,7 +783,7 @@ ErrCode UiAppearanceAbility::SetFontScale(const std::string& fontScale, int32_t&
         return SUCCEEDED;
     }
     if (!fontScale.empty()) {
-        funcResult = OnSetFontScale(GetCallingUserId(), fontScale);
+        funcResult = OnSetFontScale(GetCallingAccountContext(), fontScale);
         return SUCCEEDED;
     } else {
         LOGE("current fontScale is empty!");
@@ -705,7 +796,7 @@ ErrCode UiAppearanceAbility::GetFontScale(std::string& fontScale, int32_t& funcR
 {
     {
         std::lock_guard<std::mutex> guard(usersParamMutex_);
-        auto it = usersParam_.find(GetCallingUserId());
+        auto it = usersParam_.find(GetCallingAccountContext());
         if (it != usersParam_.end()) {
             fontScale = it->second.fontScale;
         } else {
@@ -717,7 +808,7 @@ ErrCode UiAppearanceAbility::GetFontScale(std::string& fontScale, int32_t& funcR
     return SUCCEEDED;
 }
 
-int32_t UiAppearanceAbility::OnSetFontWeightScale(const int32_t userId, const std::string& fontWeightScale)
+int32_t UiAppearanceAbility::OnSetFontWeightScale(const AccountContext& context, const std::string& fontWeightScale)
 {
     bool ret = false;
     AppExecFwk::Configuration config;
@@ -727,19 +818,19 @@ int32_t UiAppearanceAbility::OnSetFontWeightScale(const int32_t userId, const st
         return INVALID_ARG;
     }
 
-    if (!UpdateConfiguration(config, userId)) {
+    if (!UpdateConfiguration(config, context.userId)) {
         return SYS_ERR;
     }
     
     {
         std::lock_guard<std::mutex> guard(usersParamMutex_);
-        usersParam_[userId].fontWeightScale = fontWeightScale;
+        usersParam_[context].fontWeightScale = fontWeightScale;
     }
 
     SetParameterWrap(FONT_Weight_SCAL_FOR_USER0, fontWeightScale);
 
     // persist to file: etc/para/ui_appearance.para
-    auto isSetPara = SetParameterWrap(FontWeightScaleParamAssignUser(userId), fontWeightScale);
+    auto isSetPara = SetParameterWrap(FontWeightScaleParamAssignUser(context), fontWeightScale);
     if (!isSetPara) {
         LOGE("set parameter failed");
         return SYS_ERR;
@@ -757,7 +848,7 @@ ErrCode UiAppearanceAbility::SetFontWeightScale(const std::string& fontWeightSca
         return SUCCEEDED;
     }
     if (!fontWeightScale.empty()) {
-        funcResult = OnSetFontWeightScale(GetCallingUserId(), fontWeightScale);
+        funcResult = OnSetFontWeightScale(GetCallingAccountContext(), fontWeightScale);
         return SUCCEEDED;
     } else {
         LOGE("current fontWeightScale is empty!");
@@ -770,7 +861,7 @@ ErrCode UiAppearanceAbility::GetFontWeightScale(std::string& fontWeightScale, in
 {
     {
         std::lock_guard<std::mutex> guard(usersParamMutex_);
-        auto it = usersParam_.find(GetCallingUserId());
+        auto it = usersParam_.find(GetCallingAccountContext());
         if (it != usersParam_.end()) {
             fontWeightScale = it->second.fontWeightScale;
         } else {
@@ -791,7 +882,8 @@ ErrCode UiAppearanceAbility::SetSettingData(const std::string& key, const std::s
     }
     SettingDataManager& manager = SettingDataManager::GetInstance();
     std::lock_guard lock(settingMutex_);
-    manager.SetStringValue(key, value, GetCallingUserId());
+    AccountContext context = GetCallingAccountContext();
+    manager.SetStringValue(AccountContextHelper::BuildSettingKey(key, context), value, context.userId);
 
     LOGD("set setting data key:%{public}s value:%{public}s", key.c_str(), value.c_str());
     funcResult = SUCCEEDED;
@@ -819,6 +911,7 @@ void UiAppearanceAbility::UpdateSmartGestureModeCallback(bool isAutoMode, int32_
 
 void UiAppearanceAbility::UpdateDarkModeCallback(const bool isDarkMode, const int32_t userId)
 {
+    AccountContext context = GetForegroundAccountContext(userId);
     bool ret = false;
     std::string paramValue;
     AppExecFwk::Configuration config;
@@ -843,13 +936,13 @@ void UiAppearanceAbility::UpdateDarkModeCallback(const bool isDarkMode, const in
     if (effectiveUserIds.size() > 1) {
         SetParameterWrap(PERSIST_DARKMODE_KEY, paramValue);
         for (const int32_t effectiveUserId : effectiveUserIds) {
-            ConfigurePersistence(isDarkMode, effectiveUserId, paramValue);
+            ConfigurePersistence(isDarkMode, GetForegroundAccountContext(effectiveUserId), paramValue);
         }
         return;
     }
 
     SetParameterWrap(PERSIST_DARKMODE_KEY, paramValue);
-    ConfigurePersistence(isDarkMode, userId, paramValue);
+    ConfigurePersistence(isDarkMode, context, paramValue);
 }
 
 std::vector<std::int32_t> UiAppearanceAbility::GetMultipleUsers()
@@ -866,33 +959,34 @@ std::vector<std::int32_t> UiAppearanceAbility::GetMultipleUsers()
 }
 
 void UiAppearanceAbility::ConfigurePersistence(
-    const bool isDarkMode, const int32_t userId, const std::string& paramValue)
+    const bool isDarkMode, const AccountContext& context, const std::string& paramValue)
 {
     {
         std::lock_guard<std::mutex> guard(usersParamMutex_);
-        usersParam_[userId].darkMode = isDarkMode ? ALWAYS_DARK : ALWAYS_LIGHT;
+        usersParam_[context].darkMode = isDarkMode ? ALWAYS_DARK : ALWAYS_LIGHT;
     }
 
-    if (!SetParameterWrap(DarkModeParamAssignUser(userId), paramValue)) {
+    if (!SetParameterWrap(DarkModeParamAssignUser(context), paramValue)) {
         LOGE("set parameter failed");
     }
 }
 
-int32_t UiAppearanceAbility::ConfigurePersistence(const int32_t userId, DarkMode mode, const std::string& paramValue)
+int32_t UiAppearanceAbility::ConfigurePersistence(
+    const AccountContext& context, DarkMode mode, const std::string& paramValue)
 {
-    DarkModeManager::GetInstance().DoSwitchTemporaryColorMode(userId, mode == ALWAYS_DARK ? true : false);
+    DarkModeManager::GetInstance().DoSwitchTemporaryColorMode(context, mode == ALWAYS_DARK ? true : false);
     {
         std::lock_guard<std::mutex> guard(usersParamMutex_);
-        usersParam_[userId].darkMode = mode;
+        usersParam_[context].darkMode = mode;
     }
 
     // persist to file: etc/para/ui_appearance.para
-    auto isSetPara = SetParameterWrap(DarkModeParamAssignUser(userId), paramValue);
+    auto isSetPara = SetParameterWrap(DarkModeParamAssignUser(context), paramValue);
     if (!isSetPara) {
         LOGE("set parameter failed");
         return SYS_ERR;
     }
-    DarkModeManager::GetInstance().NotifyDarkModeUpdate(userId, mode == ALWAYS_DARK);
+    DarkModeManager::GetInstance().NotifyDarkModeUpdate(context, mode == ALWAYS_DARK);
     return SUCCEEDED;
 }
 } // namespace ArkUi::UiAppearance

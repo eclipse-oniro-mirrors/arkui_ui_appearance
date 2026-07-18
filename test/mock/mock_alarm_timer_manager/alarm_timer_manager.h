@@ -42,7 +42,7 @@ public:
         return GetInstance().MockIsWithinTimeInterval(startTime, endTime);
     }
 
-    MOCK_METHOD(ErrCode, SetScheduleTime, (uint64_t startTime, uint64_t endTime, uint32_t userId,
+    MOCK_METHOD(ErrCode, SetScheduleTime, (uint64_t startTime, uint64_t endTime, uint64_t userId,
         const std::function<void()>& startCallback, const std::function<void()>& endCallback));
     MOCK_METHOD(void, ClearTimerByUserId, (uint64_t userId));
     MOCK_METHOD(bool, RestartAllTimer, ());

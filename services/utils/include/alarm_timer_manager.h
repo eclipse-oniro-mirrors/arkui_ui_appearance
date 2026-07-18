@@ -32,7 +32,7 @@ public:
 
     virtual ~AlarmTimerManager() = default;
 
-    ErrCode SetScheduleTime(uint64_t startTime, uint64_t endTime, uint32_t userId,
+    ErrCode SetScheduleTime(uint64_t startTime, uint64_t endTime, uint64_t userId,
         const std::function<void()>& startCallback, const std::function<void()>& endCallback);
 
     void ClearTimerByUserId(uint64_t userId);
@@ -49,8 +49,8 @@ public:
     void Dump();
 
 private:
-    std::map<uint32_t, std::array<uint64_t, TRIGGER_ARRAY_SIZE>> timerIdMap_;
-    std::map<uint32_t, std::array<uint64_t, TRIGGER_ARRAY_SIZE>> initialSetupTimeMap_;
+    std::map<uint64_t, std::array<uint64_t, TRIGGER_ARRAY_SIZE>> timerIdMap_;
+    std::map<uint64_t, std::array<uint64_t, TRIGGER_ARRAY_SIZE>> initialSetupTimeMap_;
     std::mutex timerMapMutex_;
 
     static void RestartTimerByTimerId(uint64_t timerId, uint64_t time);
@@ -62,9 +62,9 @@ private:
 
     static void ClearTimer(uint64_t id);
 
-    void RecordInitialSetupTime(uint64_t startTime, uint64_t endTime, uint32_t userId);
+    void RecordInitialSetupTime(uint64_t startTime, uint64_t endTime, uint64_t userId);
 
-    void SetTimer(int8_t index, uint32_t userId, uint64_t time, const std::function<void()>& callback);
+    void SetTimer(int8_t index, uint64_t userId, uint64_t time, const std::function<void()>& callback);
 
     bool RestartTimerByUserId(uint64_t userId);
 };
