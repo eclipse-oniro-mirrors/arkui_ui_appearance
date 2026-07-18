@@ -381,6 +381,43 @@ void UiAppearanceAbility::UserSwitchFunc(const int32_t userId)
     AccountContextSwitchFunc(GetForegroundAccountContext(userId));
 }
 
+void UiAppearanceAbility::SwitchAppearanceContext(const AccountContext& context)
+{
+    LOGI("switch appearance context:%{public}s", AccountContextHelper::ToString(context).c_str());
+    AccountContextSwitchFunc(context);
+}
+
+void UiAppearanceAbility::ApplyAppearanceContextToUser(
+    const AccountContext& sourceContext, const AccountContext& targetContext)
+{
+    UiAppearanceParam sourceParam;
+    {
+        std::lock_guard<std::mutex> guard(usersParamMutex_);
+        auto it = usersParam_.find(sourceContext);
+        if (it == usersParam_.end()) {
+            LOGW("source context:%{public}s param not found", AccountContextHelper::ToString(sourceContext).c_str());
+            return;
+        }
+        sourceParam = it->second;
+        usersParam_[targetContext] = sourceParam;
+    }
+
+    if (!SetParameterWrap(DarkModeParamAssignUser(targetContext),
+        sourceParam.darkMode == DarkMode::ALWAYS_DARK ? DARK : LIGHT)) {
+        LOGE("set dark mode parameter failed, context:%{public}s",
+            AccountContextHelper::ToString(targetContext).c_str());
+    }
+    if (!SetParameterWrap(FontScaleParamAssignUser(targetContext), sourceParam.fontScale)) {
+        LOGE("set font scale parameter failed, context:%{public}s",
+            AccountContextHelper::ToString(targetContext).c_str());
+    }
+    if (!SetParameterWrap(FontWeightScaleParamAssignUser(targetContext), sourceParam.fontWeightScale)) {
+        LOGE("set font weight scale parameter failed, context:%{public}s",
+            AccountContextHelper::ToString(targetContext).c_str());
+    }
+    UpdateCurrentUserConfiguration(targetContext, true);
+}
+
 void UiAppearanceAbility::AccountContextSwitchFunc(const AccountContext& context)
 {
     DarkModeManager& manager = DarkModeManager::GetInstance();
@@ -440,18 +477,38 @@ void UiAppearanceAbility::SubscribeCommonEvent()
 
 void UiAppearanceAbility::HandleSubProfileSwitched(int32_t userId, int32_t subProfileId)
 {
-    AccountContext context = AccountContextHelper::CreateContext(userId, subProfileId);
-    if (userId <= INVALID_USER_ID || subProfileId == INVALID_SUB_PROFILE_ID) {
-        int32_t foregroundUserId = USER100;
-        auto errCode = AccountSA::OsAccountManager::GetForegroundOsAccountLocalId(foregroundUserId);
-        if (errCode != ERR_OK) {
-            LOGW("GetForegroundOsAccountLocalId error: %{public}d.", errCode);
-            foregroundUserId = USER100;
+#ifdef ENABLE_MULTIPLE_OS_ACCOUNT_SUBSPACE
+    if (userId != USER100) {
+        if (userId <= INVALID_USER_ID) {
+            LOGI("ignore invalid subProfile switched event, userId:%{public}d, subProfileId:%{public}d",
+                userId, subProfileId);
+            return;
         }
-        context = GetForegroundAccountContext(foregroundUserId);
+        AccountContext centerContext = GetForegroundAccountContext(USER100);
+        AccountContext targetContext = subProfileId == INVALID_SUB_PROFILE_ID ?
+            GetForegroundAccountContext(userId) : AccountContextHelper::CreateContext(userId, subProfileId);
+        LOGI("apply center appearance on subProfile switch, target:%{public}s",
+            AccountContextHelper::ToString(targetContext).c_str());
+        ApplyAppearanceContextToUser(centerContext, targetContext);
+        return;
     }
-    LOGI("handle subProfile switched, context:%{public}s", AccountContextHelper::ToString(context).c_str());
-    AccountContextSwitchFunc(context);
+
+    AccountContext centerContext = subProfileId == INVALID_SUB_PROFILE_ID ?
+        GetForegroundAccountContext(userId) : AccountContextHelper::CreateContext(userId, subProfileId);
+    SwitchAppearanceContext(centerContext);
+
+    std::vector<int32_t> effectiveUserIds = GetMultipleUsers();
+    if (effectiveUserIds.empty()) {
+        return;
+    }
+
+    for (const int32_t effectiveUserId : effectiveUserIds) {
+        if (effectiveUserId == USER100) {
+            continue;
+        }
+        ApplyAppearanceContextToUser(centerContext, GetForegroundAccountContext(effectiveUserId));
+    }
+#endif
 }
 
 void UiAppearanceAbility::OnAddSystemAbility(int32_t systemAbilityId, const std::string& deviceId)
@@ -754,16 +811,38 @@ int32_t UiAppearanceAbility::OnSetFontScale(const AccountContext& context, const
         LOGE("AddItem failed, fontScale = %{public}s", fontScale.c_str());
         return INVALID_ARG;
     }
+
+#ifdef ENABLE_MULTIPLE_OS_ACCOUNT_SUBSPACE
+    std::vector<int32_t> effectiveUserIds = GetMultipleUsers();
+    if (effectiveUserIds.size() > 1) {
+        if (!UpdateConfiguration(config, context.userId, effectiveUserIds)) {
+            return SYS_ERR;
+        }
+        SetParameterWrap(FONT_SCAL_FOR_USER0, fontScale);
+        for (const int32_t effectiveUserId : effectiveUserIds) {
+            if (ConfigureFontScalePersistence(GetForegroundAccountContext(effectiveUserId), fontScale) != SUCCEEDED) {
+                return SYS_ERR;
+            }
+        }
+        return SUCCEEDED;
+    }
+#endif
+
     if (!UpdateConfiguration(config, context.userId)) {
         return SYS_ERR;
     }
 
+    SetParameterWrap(FONT_SCAL_FOR_USER0, fontScale);
+    return ConfigureFontScalePersistence(context, fontScale);
+}
+
+int32_t UiAppearanceAbility::ConfigureFontScalePersistence(const AccountContext& context, const std::string& fontScale)
+{
     {
         std::lock_guard<std::mutex> guard(usersParamMutex_);
         usersParam_[context].fontScale = fontScale;
     }
 
-    SetParameterWrap(FONT_SCAL_FOR_USER0, fontScale);
     // persist to file: etc/para/ui_appearance.para
     auto isSetPara = SetParameterWrap(FontScaleParamAssignUser(context), fontScale);
     if (!isSetPara) {
@@ -818,16 +897,38 @@ int32_t UiAppearanceAbility::OnSetFontWeightScale(const AccountContext& context,
         return INVALID_ARG;
     }
 
+#ifdef ENABLE_MULTIPLE_OS_ACCOUNT_SUBSPACE
+    std::vector<int32_t> effectiveUserIds = GetMultipleUsers();
+    if (effectiveUserIds.size() > 1) {
+        if (!UpdateConfiguration(config, context.userId, effectiveUserIds)) {
+            return SYS_ERR;
+        }
+        SetParameterWrap(FONT_Weight_SCAL_FOR_USER0, fontWeightScale);
+        for (const int32_t effectiveUserId : effectiveUserIds) {
+            if (ConfigureFontWeightScalePersistence(
+                GetForegroundAccountContext(effectiveUserId), fontWeightScale) != SUCCEEDED) {
+                return SYS_ERR;
+            }
+        }
+        return SUCCEEDED;
+    }
+#endif
+
     if (!UpdateConfiguration(config, context.userId)) {
         return SYS_ERR;
     }
-    
+
+    SetParameterWrap(FONT_Weight_SCAL_FOR_USER0, fontWeightScale);
+    return ConfigureFontWeightScalePersistence(context, fontWeightScale);
+}
+
+int32_t UiAppearanceAbility::ConfigureFontWeightScalePersistence(
+    const AccountContext& context, const std::string& fontWeightScale)
+{
     {
         std::lock_guard<std::mutex> guard(usersParamMutex_);
         usersParam_[context].fontWeightScale = fontWeightScale;
     }
-
-    SetParameterWrap(FONT_Weight_SCAL_FOR_USER0, fontWeightScale);
 
     // persist to file: etc/para/ui_appearance.para
     auto isSetPara = SetParameterWrap(FontWeightScaleParamAssignUser(context), fontWeightScale);
