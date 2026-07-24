@@ -96,6 +96,8 @@ private:
     AccountContext GetForegroundAccountContext(int32_t fallbackUserId);
     std::list<int32_t> GetUserIds();
     void UserSwitchFunc(const int32_t userId);
+    void SwitchAppearanceContext(const AccountContext& context);
+    void ApplyAppearanceContextToUser(const AccountContext& sourceContext, const AccountContext& targetContext);
     void AccountContextSwitchFunc(const AccountContext& context);
     void DoInitProcess();
 
@@ -104,6 +106,8 @@ private:
     DarkMode InitGetDarkMode(const AccountContext& context);
     int32_t OnSetFontScale(const AccountContext& context, const std::string& fontScale);
     int32_t OnSetFontWeightScale(const AccountContext& context, const std::string& fontWeightScale);
+    int32_t ConfigureFontScalePersistence(const AccountContext& context, const std::string& fontScale);
+    int32_t ConfigureFontWeightScalePersistence(const AccountContext& context, const std::string& fontWeightScale);
     std::string DarkNodeConfigurationAssignUser(const int32_t userId);
     std::string FontScaleConfigurationAssignUser(const int32_t userId);
     std::string FontWeightScaleConfigurationAssignUser(const int32_t userId);
