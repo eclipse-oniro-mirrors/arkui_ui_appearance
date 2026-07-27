@@ -49,6 +49,7 @@ ohos_source_set("ui_appearance_ability_stub") {
   ]
   subsystem_name = "arkui"
   part_name = "ui_appearance"
+  branch_protector_ret = "pac_ret"
 }
 
 ohos_shared_library("ui_appearance_service") {
@@ -121,6 +122,7 @@ ohos_shared_library("ui_appearance_service") {
   ]
   subsystem_name = "arkui"
   part_name = "ui_appearance"
+  branch_protector_ret = "pac_ret"
 }
 
 ohos_shared_library("ui_appearance_client") {
