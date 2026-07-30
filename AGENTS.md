@@ -72,20 +72,22 @@ Use the KB as the first-stop context before any deep code analysis, and follow t
 
 - Use `rg` in `docs/kb/` for KB lookup:
   - `rg -n "<keyword>" docs/kb`
-- Entry points: `docs/kb/README.md`, `docs/knowledge_base_INDEX.json`, and KB directories under `docs/kb/` (for example: `architecture/`, `service/`, `api/`, `feature/`).
+- Entry points: `docs/context_registry.json`, `docs/kb/README.md`, and KB directories under `docs/kb/` (for example: `architecture/`, `service/`, `api/`, `feature/`).
 
 ### 3.2 Authoring Standard
 
-- Naming/location: use `XXX_Knowledge_Base.md` or `XXX_Knowledge_Base_CN.md`; place under `docs/kb/<category>/` (choose by topic).
-- Index metadata (`docs/knowledge_base_INDEX.json`) must include: `name`, `name_cn`, `category`, `type`, `file_path`, `last_updated`, `keywords` (5-15), `aliases` (2-5); recommend `source_paths` and `api_paths`.
+- KB is a lightweight context navigation page: only provide 定位、源码/API/测试/Spec 路由、常见问题定位和调试入口。
+- Do not maintain full API behavior matrices, AC/BR/FR/ER/RC, or large call-chain reproductions in KB.
+- New KB must sync `docs/context_registry.json` with required fields: `id/name/name_cn/kind/category/keywords/aliases/kb/status/last_verified`; recommended: `source_paths/api_paths/test_paths`.
+- KB file naming: use kebab-case (e.g., `dark-mode-manager.md`), place under `docs/kb/<category>/`.
 - Allowed categories: `service`, `feature`, `api`, `architecture`.
-- Required sections in each KB doc: 概述, 目录结构, 核心类继承关系, 实现详解, 完整API清单, 关键实现细节, 使用示例, 调试指南, 常见问题.
+- Code-level conclusions must be verifiable from real source or SDK declarations; unverified content must be labeled "推测".
 
 Quick checks:
 
 ```bash
-find docs -name "*_Knowledge_Base*.md" -type f | wc -l
-python3 -m json.tool docs/knowledge_base_INDEX.json > /dev/null && echo "Valid JSON"
+python3 -m json.tool docs/context_registry.json > /dev/null && echo "Valid JSON"
+find docs/kb -name "*.md" -type f | wc -l
 ```
 
 ## 4. Core Working Principles (Must Follow)

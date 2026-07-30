@@ -1,10 +1,13 @@
 {
-  "knowledge_bases": [
+  "schema_version": "0.1.0",
+  "last_updated": "2026-07-30",
+  "contexts": [
     {
-      "name": "UiAppearanceService",
+      "id": "UiAppearanceService",
+      "name": "UiAppearance Service",
       "name_cn": "UI外观服务",
+      "kind": "service",
       "category": "service",
-      "type": "service",
       "keywords": [
         "UI外观",
         "深色模式",
@@ -25,7 +28,7 @@
         "外观SA",
         "UiAppearance SA"
       ],
-      "file_path": "kb/service/UiAppearance_Service_Knowledge_Base_CN.md",
+      "kb": "docs/kb/service/ui-appearance-service.md",
       "source_paths": {
         "ability": "services/src/ui_appearance_ability.cpp",
         "ability_header": "services/include/ui_appearance_ability.h",
@@ -37,13 +40,18 @@
         "napi": "interfaces/kits/napi/src/js_ui_appearance.cpp",
         "ani": "interfaces/ets/ani/src/ui_appearance.cpp"
       },
-      "last_updated": "2026-07-30"
+      "test_paths": [
+        "test/unittest/ui_appearance_test.cpp"
+      ],
+      "status": "active",
+      "last_verified": "2026-07-30"
     },
     {
-      "name": "DarkModeManager",
+      "id": "DarkModeManager",
+      "name": "Dark Mode Manager",
       "name_cn": "深色模式管理器",
+      "kind": "feature",
       "category": "feature",
-      "type": "feature",
       "keywords": [
         "深色模式",
         "DarkMode",
@@ -63,7 +71,7 @@
         "DarkMode调度",
         "颜色模式管理"
       ],
-      "file_path": "kb/feature/DarkMode_Manager_Knowledge_Base_CN.md",
+      "kb": "docs/kb/feature/dark-mode-manager.md",
       "source_paths": {
         "manager": "services/src/dark_mode_manager.cpp",
         "manager_header": "services/include/dark_mode_manager.h",
@@ -75,13 +83,18 @@
         "alarm_timer_header": "services/utils/include/alarm_timer_manager.h"
       },
       "api_paths": {},
-      "last_updated": "2026-07-30"
+      "test_paths": [
+        "test/unittest/dark_mode_manager_test/dark_mode_manager_test.cpp"
+      ],
+      "status": "active",
+      "last_verified": "2026-07-30"
     },
     {
-      "name": "SmartGestureManager",
+      "id": "SmartGestureManager",
+      "name": "Smart Gesture Manager",
       "name_cn": "智慧手势管理器",
+      "kind": "feature",
       "category": "feature",
-      "type": "feature",
       "keywords": [
         "智慧手势",
         "SmartGesture",
@@ -95,19 +108,24 @@
         "智慧手势管理",
         "手势模式管理"
       ],
-      "file_path": "kb/feature/SmartGesture_Manager_Knowledge_Base_CN.md",
+      "kb": "docs/kb/feature/smart-gesture-manager.md",
       "source_paths": {
         "manager": "services/src/smart_gesture_manager.cpp",
         "manager_header": "services/include/smart_gesture_manager.h"
       },
       "api_paths": {},
-      "last_updated": "2026-07-30"
+      "test_paths": [
+        "test/unittest/smart_gesture_manager_test/smart_gesture_manager_test.cpp"
+      ],
+      "status": "active",
+      "last_verified": "2026-07-30"
     },
     {
-      "name": "UiAppearanceAPI",
-      "name_cn": "UI外观API知识库",
+      "id": "UiAppearanceAPI",
+      "name": "UiAppearance API",
+      "name_cn": "UI外观API",
+      "kind": "api",
       "category": "api",
-      "type": "api",
       "keywords": [
         "API",
         "NAPI",
@@ -130,7 +148,7 @@
         "外观接口",
         "UiAppearance接口"
       ],
-      "file_path": "kb/api/UiAppearance_API_Knowledge_Base_CN.md",
+      "kb": "docs/kb/api/ui-appearance-api.md",
       "source_paths": {
         "native_kit": "interfaces/kits/native/src/ui_appearance.cpp",
         "native_header": "interfaces/kits/native/include/ui_appearance.h",
@@ -144,13 +162,18 @@
         "ani_module": "interfaces/ets/ani/src/ui_appearance.cpp",
         "arkts_decl": "interfaces/ets/ani/ets/@ohos.uiAppearance.ets"
       },
-      "last_updated": "2026-07-30"
+      "test_paths": [
+        "test/unittest/ui_appearance_test.cpp"
+      ],
+      "status": "active",
+      "last_verified": "2026-07-30"
     },
     {
-      "name": "UiAppearanceArchitecture",
-      "name_cn": "UI外观架构知识库",
+      "id": "UiAppearanceArchitecture",
+      "name": "UiAppearance Architecture",
+      "name_cn": "UI外观架构",
+      "kind": "architecture",
       "category": "architecture",
-      "type": "architecture",
       "keywords": [
         "架构",
         "IPC",
@@ -163,14 +186,15 @@
         "子配置",
         "SettingDataManager",
         "DataShare",
-        "配置持久化"
+        "配置持久化",
+        "权限模型"
       ],
       "aliases": [
         "UI外观架构",
         "外观服务架构",
         "UiAppearance架构"
       ],
-      "file_path": "kb/architecture/UiAppearance_Architecture_Knowledge_Base_CN.md",
+      "kb": "docs/kb/architecture/ui-appearance-architecture.md",
       "source_paths": {
         "idl": "services/IUiAppearanceAbility.idl",
         "client": "services/src/ui_appearance_ability_client.cpp",
@@ -178,41 +202,20 @@
         "account_context": "services/src/account_context.cpp",
         "account_context_header": "services/include/account_context.h",
         "setting_data_manager": "services/utils/src/setting_data_manager.cpp",
-        "setting_data_manager_header": "services/utils/include/setting_data_manager.h"
+        "setting_data_manager_header": "services/utils/include/setting_data_manager.h",
+        "setting_data_observer": "services/utils/src/setting_data_observer.cpp",
+        "setting_data_observer_header": "services/utils/include/setting_data_observer.h",
+        "parameter_wrap": "services/utils/src/parameter_wrap.cpp",
+        "json_utils": "services/utils/src/json_utils.cpp"
       },
       "api_paths": {},
-      "last_updated": "2026-07-30"
+      "test_paths": [
+        "test/unittest/ui_appearance_test.cpp",
+        "test/unittest/setting_data_manager_test/setting_data_manager_test.cpp",
+        "test/unittest/setting_data_observer_test/setting_data_observer_test.cpp"
+      ],
+      "status": "active",
+      "last_verified": "2026-07-30"
     }
-  ],
-  "categories": {
-    "service": {
-      "name": "服务",
-      "description": "SA服务核心实现",
-      "components": [
-        "UiAppearanceService"
-      ]
-    },
-    "feature": {
-      "name": "功能特性",
-      "description": "具体功能模块的实现",
-      "components": [
-        "DarkModeManager",
-        "SmartGestureManager"
-      ]
-    },
-    "api": {
-      "name": "API接口",
-      "description": "公开API层（Native/NAPI/ANI）",
-      "components": [
-        "UiAppearanceAPI"
-      ]
-    },
-    "architecture": {
-      "name": "架构设计",
-      "description": "IPC架构、多用户、数据持久化等",
-      "components": [
-        "UiAppearanceArchitecture"
-      ]
-    }
-  }
+  ]
 }

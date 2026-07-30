@@ -1,64 +1,41 @@
-# UiAppearance Knowledge Base
-
-此目录用于存放 ui_appearance 仓的知识库文档，并通过索引文件支持快速检索。
+# UiAppearance KB
 
 > 更新时间：2026-07-30
-> 适用仓库：`OpenHarmony/foundation/arkui/ui_appearance/docs/kb`
+> 主题数：5
+> 适用范围：`OpenHarmony/foundation/arkui/ui_appearance/docs/kb`
 
-## 1. 检索入口
+`docs/kb/` 是 ui_appearance 仓的知识库专区。新版 KB 只作为 Agent 上下文导航页，行为事实以源码、SDK/API 声明、测试和 Spec 为准。
 
-- 上下文索引：`docs/knowledge_base_INDEX.json`
-- 兜底检索：`rg -n "<关键字>" docs/kb`
-
-## 2. 当前统计
-
-- `docs/kb/` 下知识库文档总数：5
-- `docs/knowledge_base_INDEX.json` 索引条目总数：5
-
-类型分布：
-- `service`: 1
-- `feature`: 2
-- `api`: 1
-- `architecture`: 1
-
-分类分布：
-- `service`: 1
-- `feature`: 2
-- `api`: 1
-- `architecture`: 1
-
-## 3. 目录结构
+## 目录约束
 
 ```text
-docs/
-├── knowledge_base_INDEX.json
-└── kb/
-    ├── README.md
-    ├── service/
-    │   └── UiAppearance_Service_Knowledge_Base_CN.md
-    ├── feature/
-    │   ├── DarkMode_Manager_Knowledge_Base_CN.md
-    │   └── SmartGesture_Manager_Knowledge_Base_CN.md
-    ├── api/
-    │   └── UiAppearance_API_Knowledge_Base_CN.md
-    └── architecture/
-        └── UiAppearance_Architecture_Knowledge_Base_CN.md
+docs/kb/
+├── service/       # SA 服务核心
+├── feature/       # 功能特性模块
+├── api/           # API 接口层（Native/NAPI/ANI）
+└── architecture/  # 架构设计（IPC、多用户、持久化）
 ```
 
-## 4. 索引维护规则
+## 编写规则
 
-新增或更新知识库时，至少同步以下内容：
+- 新增 KB 必须同步 `docs/context_registry.json`。
+- KB 保留定位、源码/API/测试/Spec 路由、调试入口和常见问题定位。
+- KB 不长期维护完整 API 行为矩阵、AC/BR/FR/ER/RC 或大段调用链复述。
+- 代码级结论必须能从真实源码或 SDK 声明验证，未验证内容标注为"推测"。
 
-1. 更新文档本体。
-2. 更新 `docs/knowledge_base_INDEX.json`：
-   - 必填：`name/name_cn/category/type/keywords/aliases/file_path/last_updated`
-   - 推荐：`source_paths/api_paths`
-   - 分类取值：`service/feature/api/architecture`
-3. 更新本文件统计与目录快照。
+## 当前主题
 
-校验命令：
+| ID | 主题 | 新版 KB | 状态 |
+|----|------|---------|------|
+| UiAppearanceService | UI外观服务 | `docs/kb/service/ui-appearance-service.md` | 新建 |
+| DarkModeManager | 深色模式管理器 | `docs/kb/feature/dark-mode-manager.md` | 新建 |
+| SmartGestureManager | 智慧手势管理器 | `docs/kb/feature/smart-gesture-manager.md` | 新建 |
+| UiAppearanceAPI | UI外观API | `docs/kb/api/ui-appearance-api.md` | 新建 |
+| UiAppearanceArchitecture | UI外观架构 | `docs/kb/architecture/ui-appearance-architecture.md` | 新建 |
+
+## 检索
 
 ```bash
-python3 -m json.tool docs/knowledge_base_INDEX.json > /dev/null && echo "Valid JSON"
-find docs -name "*_Knowledge_Base*.md" -type f | wc -l
+rg -n "<keyword>" docs/kb
+python3 -m json.tool docs/context_registry.json > /dev/null
 ```
