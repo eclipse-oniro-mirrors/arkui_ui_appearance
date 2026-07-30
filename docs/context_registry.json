@@ -1,0 +1,221 @@
+{
+  "schema_version": "0.1.0",
+  "last_updated": "2026-07-30",
+  "contexts": [
+    {
+      "id": "UiAppearanceService",
+      "name": "UiAppearance Service",
+      "name_cn": "UI外观服务",
+      "kind": "service",
+      "category": "service",
+      "keywords": [
+        "UI外观",
+        "深色模式",
+        "字体缩放",
+        "字体粗细",
+        "SA服务",
+        "SystemAbility",
+        "7002",
+        "ui_service",
+        "SetDarkMode",
+        "SetFontScale",
+        "SetFontWeightScale",
+        "SetSettingData",
+        "UiAppearanceAbility"
+      ],
+      "aliases": [
+        "UI外观服务",
+        "外观SA",
+        "UiAppearance SA"
+      ],
+      "kb": "docs/kb/service/ui-appearance-service.md",
+      "source_paths": {
+        "ability": "services/src/ui_appearance_ability.cpp",
+        "ability_header": "services/include/ui_appearance_ability.h",
+        "idl": "services/IUiAppearanceAbility.idl",
+        "sa_profile": "sa_profile/7002.json"
+      },
+      "api_paths": {
+        "native": "interfaces/kits/native/include/ui_appearance.h",
+        "napi": "interfaces/kits/napi/src/js_ui_appearance.cpp",
+        "ani": "interfaces/ets/ani/src/ui_appearance.cpp"
+      },
+      "test_paths": [
+        "test/unittest/ui_appearance_test.cpp"
+      ],
+      "status": "active",
+      "last_verified": "2026-07-30"
+    },
+    {
+      "id": "DarkModeManager",
+      "name": "Dark Mode Manager",
+      "name_cn": "深色模式管理器",
+      "kind": "feature",
+      "category": "feature",
+      "keywords": [
+        "深色模式",
+        "DarkMode",
+        "自定义定时",
+        "日出日落",
+        "CUSTOM_AUTO",
+        "SUNRISE_SUNSET",
+        "AlarmTimerManager",
+        "TemporaryColorModeManager",
+        "ScreenSwitchOperatorManager",
+        "定时调度",
+        "深浅色切换",
+        "DarkModeManager"
+      ],
+      "aliases": [
+        "深色模式管理",
+        "DarkMode调度",
+        "颜色模式管理"
+      ],
+      "kb": "docs/kb/feature/dark-mode-manager.md",
+      "source_paths": {
+        "manager": "services/src/dark_mode_manager.cpp",
+        "manager_header": "services/include/dark_mode_manager.h",
+        "temp_state": "services/src/dark_mode_temp_state_manager.cpp",
+        "temp_state_header": "services/include/dark_mode_temp_state_manager.h",
+        "screen_switch": "services/src/screen_switch_operator_manager.cpp",
+        "screen_switch_header": "services/include/screen_switch_operator_manager.h",
+        "alarm_timer": "services/utils/src/alarm_timer_manager.cpp",
+        "alarm_timer_header": "services/utils/include/alarm_timer_manager.h"
+      },
+      "api_paths": {},
+      "test_paths": [
+        "test/unittest/dark_mode_manager_test/dark_mode_manager_test.cpp"
+      ],
+      "status": "active",
+      "last_verified": "2026-07-30"
+    },
+    {
+      "id": "SmartGestureManager",
+      "name": "Smart Gesture Manager",
+      "name_cn": "智慧手势管理器",
+      "kind": "feature",
+      "category": "feature",
+      "keywords": [
+        "智慧手势",
+        "SmartGesture",
+        "手势模式",
+        "自动模式",
+        "禁用模式",
+        "smart_gesture_enable",
+        "SmartGestureManager"
+      ],
+      "aliases": [
+        "智慧手势管理",
+        "手势模式管理"
+      ],
+      "kb": "docs/kb/feature/smart-gesture-manager.md",
+      "source_paths": {
+        "manager": "services/src/smart_gesture_manager.cpp",
+        "manager_header": "services/include/smart_gesture_manager.h"
+      },
+      "api_paths": {},
+      "test_paths": [
+        "test/unittest/smart_gesture_manager_test/smart_gesture_manager_test.cpp"
+      ],
+      "status": "active",
+      "last_verified": "2026-07-30"
+    },
+    {
+      "id": "UiAppearanceAPI",
+      "name": "UiAppearance API",
+      "name_cn": "UI外观API",
+      "kind": "api",
+      "category": "api",
+      "keywords": [
+        "API",
+        "NAPI",
+        "ANI",
+        "NativeKit",
+        "SetDarkMode",
+        "GetDarkMode",
+        "SetFontScale",
+        "GetFontScale",
+        "SetFontWeightScale",
+        "GetFontWeightScale",
+        "SetSettingData",
+        "DarkMode",
+        "ALWAYS_DARK",
+        "ALWAYS_LIGHT",
+        "@ohos.uiAppearance"
+      ],
+      "aliases": [
+        "UI外观API",
+        "外观接口",
+        "UiAppearance接口"
+      ],
+      "kb": "docs/kb/api/ui-appearance-api.md",
+      "source_paths": {
+        "native_kit": "interfaces/kits/native/src/ui_appearance.cpp",
+        "native_header": "interfaces/kits/native/include/ui_appearance.h",
+        "types_header": "interfaces/kits/native/include/ui_appearance_types.h",
+        "napi": "interfaces/kits/napi/src/js_ui_appearance.cpp",
+        "ani": "interfaces/ets/ani/src/ui_appearance.cpp"
+      },
+      "api_paths": {
+        "native": "interfaces/kits/native/include/ui_appearance.h",
+        "napi_module": "interfaces/kits/napi/src/js_ui_appearance.cpp",
+        "ani_module": "interfaces/ets/ani/src/ui_appearance.cpp",
+        "arkts_decl": "interfaces/ets/ani/ets/@ohos.uiAppearance.ets"
+      },
+      "test_paths": [
+        "test/unittest/ui_appearance_test.cpp"
+      ],
+      "status": "active",
+      "last_verified": "2026-07-30"
+    },
+    {
+      "id": "UiAppearanceArchitecture",
+      "name": "UiAppearance Architecture",
+      "name_cn": "UI外观架构",
+      "kind": "architecture",
+      "category": "architecture",
+      "keywords": [
+        "架构",
+        "IPC",
+        "IDL",
+        "Stub",
+        "Proxy",
+        "三层接口",
+        "多用户",
+        "AccountContext",
+        "子配置",
+        "SettingDataManager",
+        "DataShare",
+        "配置持久化",
+        "权限模型"
+      ],
+      "aliases": [
+        "UI外观架构",
+        "外观服务架构",
+        "UiAppearance架构"
+      ],
+      "kb": "docs/kb/architecture/ui-appearance-architecture.md",
+      "source_paths": {
+        "idl": "services/IUiAppearanceAbility.idl",
+        "client": "services/src/ui_appearance_ability_client.cpp",
+        "client_header": "services/include/ui_appearance_ability_client.h",
+        "account_context": "services/src/account_context.cpp",
+        "account_context_header": "services/include/account_context.h",
+        "setting_data_manager": "services/utils/src/setting_data_manager.cpp",
+        "setting_data_manager_header": "services/utils/include/setting_data_manager.h",
+        "setting_data_observer": "services/utils/src/setting_data_observer.cpp",
+        "setting_data_observer_header": "services/utils/include/setting_data_observer.h",
+        "parameter_wrap": "services/utils/src/parameter_wrap.cpp",
+        "json_utils": "services/utils/src/json_utils.cpp"
+      },
+      "api_paths": {},
+      "test_paths": [
+        "test/unittest/ui_appearance_test.cpp",
+        "test/unittest/setting_data_manager_test/setting_data_manager_test.cpp",
+        "test/unittest/setting_data_observer_test/setting_data_observer_test.cpp"
+      ],
+      "status": "active",
+      "last_verified": "2026-07-30"
+    }
+  ]
+}
