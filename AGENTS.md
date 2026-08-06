@@ -74,7 +74,26 @@ Use the KB as the first-stop context before any deep code analysis, and follow t
   - `rg -n "<keyword>" docs/kb`
 - Entry points: `docs/context_registry.json`, `docs/kb/README.md`, and KB directories under `docs/kb/` (for example: `architecture/`, `service/`, `api/`, `feature/`).
 
-### 3.2 Authoring Standard
+### 3.2 Task Routing Table
+
+| Task | Read this KB first |
+|---|---|
+| Dark mode logic / scheduling | `docs/kb/service/dark-mode-manager.md` |
+| Service lifecycle / SA / IPC | `docs/kb/service/ui-appearance-service.md` |
+| Smart gesture mode | `docs/kb/service/smart-gesture-manager.md` |
+| Architecture / three-layer stack | `docs/kb/architecture/ui-appearance-architecture.md` |
+| API surface / NAPI / ANI | `docs/kb/api/` |
+
+### 3.3 Vocabulary Routing
+
+| Term | KB lookup |
+|---|---|
+| custom-auto, sunrise-sunset, darkmode_starttime | `docs/kb/service/dark-mode-manager.md` |
+| SA ID 7002, ui_service, IUiAppearanceAbility | `docs/kb/service/ui-appearance-service.md` |
+| UPDATE_CONFIGURATION, PERMISSION_ERR(201) | `docs/kb/service/ui-appearance-service.md` |
+| smart_gesture, auto/disabled | `docs/kb/service/smart-gesture-manager.md` |
+
+### 3.4 Authoring Standard
 
 - KB is a lightweight context navigation page: only provide 定位、源码/API/测试/Spec 路由、常见问题定位和调试入口。
 - Do not maintain full API behavior matrices, AC/BR/FR/ER/RC, or large call-chain reproductions in KB.
@@ -135,6 +154,28 @@ find docs/kb -name "*.md" -type f | wc -l
 - `etc/para/`: System parameter defaults and DAC permissions
 - `test/`: Unit tests with mock infrastructure
 
+### Frequently Changed Paths
+
+- `services/src/dark_mode_manager.cpp` — most frequent change target (dark mode logic)
+- `interfaces/kits/napi/` — JS API surface changes
+- `services/IUiAppearanceAbility.idl` — IPC contract changes (high impact)
+
+### Task-to-Path Quick Reference
+
+| Task | Start here |
+|---|---|
+| Dark mode scheduling / timer logic | `services/src/dark_mode_manager.cpp` |
+| Temporary color mode state | `services/src/dark_mode_temp_state_manager.cpp` |
+| Smart gesture mode | `services/src/smart_gesture_manager.cpp` |
+| Multi-user / sub-profile isolation | `services/src/account_context.cpp` |
+| Screen on/off state tracking | `services/src/screen_switch_operator_manager.cpp` |
+| Background app color switch | `services/src/background_app_color_switch_settings.cpp` |
+| IPC contract / new method | `services/IUiAppearanceAbility.idl` → regenerate Stub/Proxy |
+| Native C++ API | `interfaces/kits/native/` |
+| JS/NAPI API | `interfaces/kits/napi/` |
+| ArkTS/ANI API | `interfaces/ets/ani/` |
+| SA profile / system params | `sa_profile/`, `etc/para/` |
+
 ## 6. Service Architecture
 
 ### SA Registration
@@ -180,6 +221,21 @@ find docs/kb -name "*.md" -type f | wc -l
 - Run broader regression tests when the impact is large.
 - After business code changes, complete the overall `ui_appearance_packages` build before claiming completion.
 
+### Validation Fallback
+
+If no device is available:
+1. Run the full `ui_appearance_packages` build to catch compilation errors.
+2. State explicitly that on-device testing was not performed.
+3. Provide the exact `hdc shell` command that should be run.
+
+### Final Response Expectations
+
+When reporting completion, include:
+- Files modified (with line counts)
+- Build command run and result
+- Test command run and actual passed/failed counts
+- Any constraints identified and respected (especially IDL/permission/SA profile)
+
 ## 8. Hard Boundaries (Do not / Ask before)
 
 Do not (without explicit user confirmation):
@@ -196,3 +252,10 @@ Ask before:
 - Any new/updated/replaced dependency: `bundle.json` dependency changes; new `deps/public_deps/data_deps` in any `BUILD.gn`.
 - Changes to SA profile (`sa_profile/7002.json`) or system parameter defaults (`etc/para/`).
 - Changes to permission model or error code definitions.
+
+### Common Agent Pitfalls
+
+- Forgetting that `UiAppearanceAbilityClient` is a singleton with death recipient — reconnect logic must be preserved.
+- Editing IDL-generated Stub/Proxy directly instead of modifying `IUiAppearanceAbility.idl` and regenerating.
+- Assuming dark mode is a simple boolean — it has 4 modes with timer-based scheduling (custom-auto, sunrise-sunset).
+- Ignoring the multi-user context: `account_context.cpp` handles sub-profile isolation for color mode settings.
