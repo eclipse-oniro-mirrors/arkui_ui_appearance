@@ -15,6 +15,7 @@
 
 #include "dark_mode_manager.h"
 
+#include <charconv>
 #include <chrono>
 
 #include "iservice_registry.h"
@@ -777,8 +778,15 @@ void DarkModeManager::ApplySunriseSunsetTimes(double lat, double lon, const Acco
             AccountContextHelper::ToString(context).c_str());
         return;
     }
-    int32_t newSunset = std::stoi(sunsetStr);
-    int32_t newSunrise = std::stoi(sunriseStr);
+    int32_t newSunset = 0;
+    int32_t newSunrise = 0;
+    auto sunsetRes = std::from_chars(sunsetStr.c_str(), sunsetStr.c_str() + sunsetStr.size(), newSunset);
+    auto sunriseRes = std::from_chars(sunriseStr.c_str(), sunriseStr.c_str() + sunriseStr.size(), newSunrise);
+    if (sunsetRes.ec != std::errc() || sunriseRes.ec != std::errc()) {
+        LOGW("invalid sunrise/sunset string, sunset: %{public}s, sunrise: %{public}s, context: %{public}s",
+            sunsetStr.c_str(), sunriseStr.c_str(), AccountContextHelper::ToString(context).c_str());
+        return;
+    }
     LOGI("calculated sunrise/sunset, sunset: %{public}d, sunrise: %{public}d, context: %{public}s",
         newSunset, newSunrise, AccountContextHelper::ToString(context).c_str());
 
