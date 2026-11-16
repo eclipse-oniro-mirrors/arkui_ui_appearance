@@ -48,6 +48,7 @@ private:
 
     std::pair<std::string, std::function<void(const std::string&, int32_t)>> observer_;
 
+    std::mutex updateCallbackMutex_;
     std::function<void(bool, int32_t)> updateCallback_;
 };
 } // namespace OHOS::ArkUi::UiAppearance

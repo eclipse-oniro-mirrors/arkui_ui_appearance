@@ -32,7 +32,10 @@ SmartGestureManager &SmartGestureManager::GetInstance()
 ErrCode SmartGestureManager::Initialize(const std::function<void(bool, int32_t)>& updateCallback)
 {
     LoadSettingDataObserversCallback();
-    updateCallback_ = updateCallback;
+    {
+        std::lock_guard lock(updateCallbackMutex_);
+        updateCallback_ = updateCallback;
+    }
     return ERR_OK;
 }
 
@@ -84,10 +87,15 @@ void SmartGestureManager::UpdateSmartGestureInitialValue()
 
 void SmartGestureManager::OnChangeSmartGestureMode(const SmartGestureMode mode, const int32_t userId)
 {
-    if (!updateCallback_) {
+    std::function<void(bool, int32_t)> updateCallback;
+    {
+        std::lock_guard lock(updateCallbackMutex_);
+        updateCallback = updateCallback_;
+    }
+    if (!updateCallback) {
         LOGE("no update callback, mode: %{public}d, userId: %{public}d", mode, userId);
         return;
     }
-    updateCallback_(mode == SMART_GESTURE_AUTO, userId);
+    updateCallback(mode == SMART_GESTURE_AUTO, userId);
 }
 } // namespace OHOS::ArkUi::UiAppearance

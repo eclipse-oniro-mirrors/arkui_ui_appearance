@@ -35,6 +35,7 @@
         "init",
         "ipc",
         "napi",
+        "node",
         "safwk",
         "samgr",
         "time_service",
