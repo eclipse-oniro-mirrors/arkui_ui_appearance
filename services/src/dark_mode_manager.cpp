@@ -51,7 +51,10 @@ DarkModeManager &DarkModeManager::GetInstance()
 ErrCode DarkModeManager::Initialize(const std::function<void(bool, int32_t)>& updateCallback)
 {
     LoadSettingDataObserversCallback();
-    updateCallback_ = updateCallback;
+    {
+        std::lock_guard lock(updateCallbackMutex_);
+        updateCallback_ = updateCallback;
+    }
     return ERR_OK;
 }
 
@@ -593,12 +596,17 @@ ErrCode DarkModeManager::OnStateChangeToCustomAutoMode(const AccountContext& con
 
 void DarkModeManager::OnChangeDarkMode(const DarkModeMode mode, const AccountContext& context)
 {
-    if (!updateCallback_) {
+    std::function<void(bool, int32_t)> updateCallback;
+    {
+        std::lock_guard lock(updateCallbackMutex_);
+        updateCallback = updateCallback_;
+    }
+    if (!updateCallback) {
         LOGE("no update callback, mode: %{public}d, context: %{public}s", mode,
             AccountContextHelper::ToString(context).c_str());
         return;
     }
-    updateCallback_(mode == DARK_MODE_ALWAYS_DARK, context.userId);
+    updateCallback(mode == DARK_MODE_ALWAYS_DARK, context.userId);
     if (temporaryColorModeMgr_.IsColorModeTemporary(context)) {
         temporaryColorModeMgr_.SetColorModeNormal(context);
     }

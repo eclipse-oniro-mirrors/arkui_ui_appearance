@@ -153,6 +153,7 @@ private:
     std::mutex darkModeStatesMutex_;
     std::map<AccountContext, DarkModeState> darkModeStates_;
 
+    std::mutex updateCallbackMutex_;
     std::function<void(bool, int32_t)> updateCallback_;
 
     TemporaryColorModeManager temporaryColorModeMgr_;
